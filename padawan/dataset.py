@@ -14,7 +14,7 @@ class StatsUnknownError(Exception):
     pass
 
 
-class BasicDataset:
+class Dataset:
     def __init__(
             self,
             npartitions,
@@ -44,42 +44,20 @@ class BasicDataset:
     def known_sizes(self):
         return self._sizes is not None
 
+    @property
+    def sizes(self):
+        return None if self._sizes is None else list(self._sizes)
+
+    @property
+    def lower_bounds(self):
+        return None if self._lower_bounds is None else list(self._lower_bounds)
+
+    @property
+    def upper_bounds(self):
+        return None if self._upper_bounds is None else list(self._upper_bounds)
+
     def __len__(self):
         return self._npartitions
-
-    def get_size(self, partition_index):
-        """Get the size (number of rows) for a partition.
-
-        Args:
-            partition_index (int): The index of the partition.
-
-        Returns:
-          size (int): The number of rows in the partition.
-        """
-        if not self.known_sizes:
-            raise StatsUnknownError(
-                'The sizes for this dataset are not known.')
-        return self._sizes[partition_index]
-
-    def get_bounds(self, partition_index):
-        """Get the lower and upper bounds for a partition.
-
-        Args:
-            partition_index (int): The index of the partition.
-
-        Returns:
-          lb (tuple): The lower bound of the partiton.
-            (One element for each index column.)
-          ub (tuple): The upper bound of the partition.
-            (One element for each index column.)
-        """
-        if not self.known_bounds:
-            raise StatsUnknownError(
-                'The bounds for this dataset are not known.')
-        return (
-            self._lower_bounds[partition_index],
-            self._upper_bounds[partition_index],
-        )
 
     def __getitem__(self, partition_index):
         """Get a partition of the dataset.
@@ -106,14 +84,13 @@ class BasicDataset:
           ub (tuple): The upper bound of the partition.
             (One element for each index column.)
         """
-        part = self._get_partition(partition_index)
-        if index_columns:
-            part = part.select(index_columns).collect()
-            nrows = len(part),
-            lb = min(part.rows()),
-            ub = max(part.rows()),
+        part = self[partition_index].collect()
+        nrows = len(part)
+        if self._index_columns:
+            index = part.select(self._index_columns)
+            lb = min(index.rows())
+            ub = max(index.rows())
         else:
-            nrows = part.select(pl.count()).collect().row(0)[0]
             lb = ()
             ub = ()
         return part, nrows, lb, ub
@@ -122,11 +99,13 @@ class BasicDataset:
         fmt = f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'
         filename = fmt.format(partition_index)
         if self.known_sizes and self.known_bounds:
-            nrows = self.get_size(partition_index)
-            lb, ub = self.get_bounds(partition_index)
+            nrows = self._sizes[partition_index]
+            lb = self._lower_bounds[partition_index]
+            ub = self._upper_bounds[partition_index]
             part = self[partition_index].collect()
         else:
-            part, nrows, lb, ub = self._get_partition_with_stats(i)
+            part, nrows, lb, ub \
+                = self._get_partition_with_stats(partition_index)
         part.write_parquet(os.path.join(path, filename))
         return filename, nrows, lb, ub
 
@@ -161,4 +140,5 @@ class BasicDataset:
         }
         write_json(meta, os.path.join(path, METADATA_FILE))
 
+        return self._read_persisted(path)
 

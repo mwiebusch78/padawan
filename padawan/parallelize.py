@@ -1,11 +1,11 @@
 import multiprocessing
+import cloudpickle
 
 
-def _init_worker(func, shared_args):
+def _init_worker(func_and_args):
     global _func
     global _shared_args
-    _func = func
-    _shared_args = shared_args
+    _func, _shared_args = cloudpickle.loads(func_and_args)
 
 
 def _worker(x):
@@ -31,10 +31,11 @@ def parallel_map(f, args, workers=False, shared_args=None):
             results.append(f(arg, **shared_args))
     else:
         mp = multiprocessing.get_context(method='spawn')
+        func_and_args = cloudpickle.dumps((f, shared_args))
         with mp.Pool(
                 workers,
                 initializer=_init_worker,
-                initargs=(f, shared_args),
+                initargs=(func_and_args,),
         ) as pool:
             results = pool.map(_worker, args)
             pool.close()

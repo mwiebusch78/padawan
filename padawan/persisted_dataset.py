@@ -2,7 +2,7 @@ import glob
 import os
 import polars as pl
 
-from .dataset import BasicDataset, METADATA_FILE
+from .dataset import Dataset, METADATA_FILE
 from .parallelize import parallel_map
 from .json_io import read_json
 
@@ -11,7 +11,7 @@ class StatsNotFoundError(Exception):
     pass
 
 
-class PersistedDataset(BasicDataset):
+class PersistedDataset(Dataset):
     def _load_metadata(self, path):
         meta = read_json(os.path.join(path, METADATA_FILE))
     
@@ -121,8 +121,6 @@ def read_parquet(path, index_columns=None, parallel=False):
         path, index_columns=index_columns, parallel=parallel)
 
 
-# class CollatedDataset(BasicDataset):
-#     def __init__(self, dataset, min_rows_per_partition):
-#         if not dataset.known_stats:
-#             raise StatsUnknownError('Can only collate a dataset with known stats')
-
+def _read_persisted(self, path):
+    return read_parquet(path)
+Dataset._read_persisted = _read_persisted

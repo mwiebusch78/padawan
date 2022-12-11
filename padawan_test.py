@@ -43,6 +43,16 @@ if __name__ == '__main__':
         index_columns=['day', 'hour'],
         parallel=2,
     )
-    ds.write_parquet('data/sample_copy.parquet')
-    ds = pw.read_parquet('data/sample_copy.parquet')
-    print(ds[0].collect())
+    ds = ds.map(
+        index_columns=['day'],
+        alters_bounds=False,
+        alters_sizes=False,
+        func=lambda df:
+            df.with_column((pl.col('a')*2).alias('b'))
+    )
+    ds = ds.write_parquet('data/sample_copy.parquet', parallel=2)
+#     ds = pw.read_parquet('data/sample_copy.parquet')
+    # print(ds[0].collect())
+    print(ds.index_columns)
+    print(ds.lower_bounds)
+    print(ds.upper_bounds)
