@@ -1,0 +1,164 @@
+import shutil
+import os
+import polars as pl
+
+from .parallelize import parallel_map
+from .json_io import write_json
+
+
+PARTITION_NUMBER_DIGITS = 10
+METADATA_FILE = '_dpart_metadata.json'
+
+
+class StatsUnknownError(Exception):
+    pass
+
+
+class BasicDataset:
+    def __init__(
+            self,
+            npartitions,
+            index_columns=(),
+            sizes=None,
+            lower_bounds=None,
+            upper_bounds=None,
+    ):
+        self._index_columns = tuple(index_columns)
+        self._npartitions = npartitions
+        self._sizes = None if sizes is None else [int(s) for s in sizes]
+        self._lower_bounds = None if lower_bounds is None \
+            else [tuple(b) for b in lower_bounds]
+        self._upper_bounds = None if upper_bounds is None \
+            else [tuple(b) for b in upper_bounds]
+
+    @property
+    def index_columns(self):
+        return self._index_columns
+
+    @property
+    def known_bounds(self):
+        return self._lower_bounds is not None \
+            and self._upper_bounds is not None
+
+    @property
+    def known_sizes(self):
+        return self._sizes is not None
+
+    def __len__(self):
+        return self._npartitions
+
+    def get_size(self, partition_index):
+        """Get the size (number of rows) for a partition.
+
+        Args:
+            partition_index (int): The index of the partition.
+
+        Returns:
+          size (int): The number of rows in the partition.
+        """
+        if not self.known_sizes:
+            raise StatsUnknownError(
+                'The sizes for this dataset are not known.')
+        return self._sizes[partition_index]
+
+    def get_bounds(self, partition_index):
+        """Get the lower and upper bounds for a partition.
+
+        Args:
+            partition_index (int): The index of the partition.
+
+        Returns:
+          lb (tuple): The lower bound of the partiton.
+            (One element for each index column.)
+          ub (tuple): The upper bound of the partition.
+            (One element for each index column.)
+        """
+        if not self.known_bounds:
+            raise StatsUnknownError(
+                'The bounds for this dataset are not known.')
+        return (
+            self._lower_bounds[partition_index],
+            self._upper_bounds[partition_index],
+        )
+
+    def __getitem__(self, partition_index):
+        """Get a partition of the dataset.
+
+        Args:
+            partition_index (int): The index of the partition.
+
+        Returns:
+          part (polars.LazyFrame): The partition data.
+        """
+        raise NotImplementedError
+
+    def _get_partition_with_stats(self, partition_index):
+        """Get a partition and the associated statistics.
+
+        Args:
+            partition_index (int): The index of the partition.
+
+        Returns:
+          part (polars.LazyFrame): The partition data.
+          nrows (int): The number of rows in the partition.
+          lb (tuple): The lower bound of the partiton.
+            (One element for each index column.)
+          ub (tuple): The upper bound of the partition.
+            (One element for each index column.)
+        """
+        part = self._get_partition(partition_index)
+        if index_columns:
+            part = part.select(index_columns).collect()
+            nrows = len(part),
+            lb = min(part.rows()),
+            ub = max(part.rows()),
+        else:
+            nrows = part.select(pl.count()).collect().row(0)[0]
+            lb = ()
+            ub = ()
+        return part, nrows, lb, ub
+
+    def _write_partition(self, partition_index, path):
+        fmt = f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'
+        filename = fmt.format(partition_index)
+        if self.known_sizes and self.known_bounds:
+            nrows = self.get_size(partition_index)
+            lb, ub = self.get_bounds(partition_index)
+            part = self[partition_index].collect()
+        else:
+            part, nrows, lb, ub = self._get_partition_with_stats(i)
+        part.write_parquet(os.path.join(path, filename))
+        return filename, nrows, lb, ub
+
+    def write_parquet(self, path, parallel=False):
+        try:
+            shutil.rmtree(path)
+        except NotADirectoryError:
+            os.remove(path)
+        except FileNotFoundError:
+            pass
+        os.mkdir(path)
+
+        partition_indices = list(range(self._npartitions))
+        meta = parallel_map(
+            self._write_partition,
+            partition_indices,
+            workers=parallel,
+            shared_args={'path': path},
+        )
+
+        files = [m[0] for m in meta]
+        sizes = [m[1] for m in meta]
+        lower_bounds = [m[2] for m in meta]
+        upper_bounds = [m[3] for m in meta]
+
+        meta = {
+            'index_columns': self._index_columns,
+            'files': files,
+            'sizes': sizes,
+            'lower_bounds': lower_bounds,
+            'upper_bounds': upper_bounds,
+        }
+        write_json(meta, os.path.join(path, METADATA_FILE))
+
+
