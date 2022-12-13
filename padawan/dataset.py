@@ -95,6 +95,36 @@ class Dataset:
             ub = ()
         return part, nrows, lb, ub
 
+    def _get_partition_stats(self, partition_index):
+        _, nrows, lb, ub = self._get_partition_with_stats(partition_index)
+        return nrows, lb, ub
+
+    def _compute_stats(self, parallel):
+        """Compute partition sizes and bounds if they are not known.
+
+        The `sizes`, `lower_bounds` and `upper_bounds` properties will be
+        set after calling `_compute_stats`.
+
+        Args:
+          parallel (bool or int): Specifies how to parallelize computation:
+            `parallel = True` -- use all available CPUs
+            `parallel = False` -- no parallelism
+            `parallel > 1` -- use `parallel` number of CPUs
+            `parallel in [0, 1]` -- no parallelism
+            `parallel = -n < 0` -- use number of available CPUs minus n
+        """
+        if self.known_sizes and self.known_bounds:
+            return
+        partition_indices = list(range(self._npartitions))
+        stats = parallel_map(
+            self._get_partition_stats,
+            partition_indices,
+            workers=parallel,
+        )
+        self._sizes = [s[0] for s in stats]
+        self._lower_bounds = [s[1] for s in stats]
+        self._upper_bounds = [s[2] for s in stats]
+
     def _write_partition(self, partition_index, path):
         fmt = f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'
         filename = fmt.format(partition_index)
@@ -110,6 +140,21 @@ class Dataset:
         return filename, nrows, lb, ub
 
     def write_parquet(self, path, parallel=False):
+        """Write the dataset to disk.
+
+        Args:
+          path (str): The directory that will contain the parquet files.
+            If a file or directory with that name exists it will be deleted
+            first.
+
+        Kwargs:
+          parallel (bool or int): Specifies how to parallelize computation:
+            `parallel = True` -- use all available CPUs
+            `parallel = False` -- no parallelism
+            `parallel > 1` -- use `parallel` number of CPUs
+            `parallel in [0, 1]` -- no parallelism
+            `parallel = -n < 0` -- use number of available CPUs minus n
+        """
         try:
             shutil.rmtree(path)
         except NotADirectoryError:
