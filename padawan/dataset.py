@@ -187,3 +187,26 @@ class Dataset:
 
         return self._read_persisted(path)
 
+    def collect(self, parallel=False):
+        """Pull all data into memory.
+
+        Kwargs:
+          parallel (bool or int): Specifies how to parallelize computation:
+            `parallel = True` -- use all available CPUs
+            `parallel = False` -- no parallelism
+            `parallel > 1` -- use `parallel` number of CPUs
+            `parallel in [0, 1]` -- no parallelism
+            `parallel = -n < 0` -- use number of available CPUs minus n
+
+        Returns:
+          data (polars.DataFrame): A single dataframe with all partitions
+            concatenated.
+        """
+        partition_indices = list(range(self._npartitions))
+        parts = parallel_map(
+            self.__getitem__,
+            partition_indices,
+            workers=parallel,
+        )
+        return pl.concat(parts).collect()
+
