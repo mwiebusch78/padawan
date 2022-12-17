@@ -3,7 +3,6 @@ import os
 import polars as pl
 
 from .dataset import Dataset, METADATA_FILE
-from .parallelize import parallel_map
 from .json_io import read_json
 
 
@@ -35,7 +34,7 @@ class PersistedDataset(Dataset):
 
         return [os.path.basename(f) for f in partition_paths]
 
-    def __init__(self, path, index_columns=None, parallel=False):
+    def __init__(self, path, index_columns=None):
         self._path = path
 
         try:
@@ -74,11 +73,5 @@ class PersistedDataset(Dataset):
         return part
 
 
-def read_parquet(path, index_columns=None, parallel=False):
-    return PersistedDataset(
-        path, index_columns=index_columns, parallel=parallel)
-
-
-def _read_persisted(self, path):
-    return read_parquet(path)
-Dataset._read_persisted = _read_persisted
+def scan_parquet(path, index_columns=None):
+    return PersistedDataset(path, index_columns=index_columns)

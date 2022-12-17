@@ -26,9 +26,9 @@ class MappedDataset(Dataset):
             index_columns = other.index_columns
         else:
             index_columns = tuple(index_columns)
-        if not alters_sizes:
+        if not alters_sizes and other.known_sizes:
             sizes = other.sizes
-        if not alters_bounds:
+        if not alters_bounds and other.known_bounds:
             if index_columns == other.index_columns[:len(index_columns)]:
                 lower_bounds = [
                     b[:len(index_columns)] for b in other.lower_bounds]
