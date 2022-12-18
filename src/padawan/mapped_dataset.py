@@ -11,13 +11,15 @@ class MappedDataset(Dataset):
             args=None,
             kwargs=None,
             index_columns=None,
-            alters_bounds=True,
-            alters_sizes=True,
+            preserves='none',
     ):
         if not isinstance(other, Dataset):
             raise ValueError('other must be an instance of padawan.Dataset')
         self._other = other
         self._func = func
+
+        preserves_sizes = preserves in ['all', 'sizes']
+        preserves_bounds = preserves in ['all', 'bounds']
         
         sizes = None
         lower_bounds = None
@@ -26,9 +28,9 @@ class MappedDataset(Dataset):
             index_columns = other.index_columns
         else:
             index_columns = tuple(index_columns)
-        if not alters_sizes and other.known_sizes:
+        if preserves_sizes and other.known_sizes:
             sizes = other.sizes
-        if not alters_bounds and other.known_bounds:
+        if preserves_bounds and other.known_bounds:
             if index_columns == other.index_columns[:len(index_columns)]:
                 lower_bounds = [
                     b[:len(index_columns)] for b in other.lower_bounds]
@@ -36,8 +38,8 @@ class MappedDataset(Dataset):
                     b[:len(index_columns)] for b in other.upper_bounds]
             else:
                 raise ValueError(
-                    'Index columns must be compatible when alters_bounds is '
-                    'False')
+                    'Index columns must be compatible when bounds are not '
+                    'preserved.')
 
         self._args = () if args is None else tuple(args)
         self._kwargs = {} if kwargs is None else kwargs
@@ -62,8 +64,7 @@ def _map(
         args=None,
         kwargs=None,
         index_columns=None,
-        alters_bounds=True,
-        alters_sizes=True,
+        preserves='none',
 ):
     return MappedDataset(
         self,
@@ -71,25 +72,7 @@ def _map(
         args=args,
         kwargs=kwargs,
         index_columns=index_columns,
-        alters_bounds=alters_bounds,
-        alters_sizes=alters_sizes,
+        preserves=preserves,
     )
 Dataset.map = _map
 
-
-def _map_simple(
-        self,
-        func,
-        args=None,
-        kwargs=None,
-):
-    return MappedDataset(
-        self,
-        func,
-        args=args,
-        kwargs=kwargs,
-        index_columns=None,
-        alters_bounds=False,
-        alters_sizes=False,
-    )
-Dataset.map_simple = _map_simple

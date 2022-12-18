@@ -99,7 +99,7 @@ class Dataset:
         _, nrows, lb, ub = self._get_partition_with_stats(partition_index)
         return nrows, lb, ub
 
-    def collect_stats(self, parallel):
+    def collect_stats(self, parallel=False):
         """Compute partition sizes and bounds if they are not known.
 
         The `sizes`, `lower_bounds` and `upper_bounds` properties will be

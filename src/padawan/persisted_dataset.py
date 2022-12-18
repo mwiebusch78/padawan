@@ -73,5 +73,10 @@ class PersistedDataset(Dataset):
         return part
 
 
+def _read_persisted(self, path):
+    return PersistedDataset(path)
+Dataset._read_persisted = _read_persisted
+
+
 def scan_parquet(path, index_columns=None):
     return PersistedDataset(path, index_columns=index_columns)
