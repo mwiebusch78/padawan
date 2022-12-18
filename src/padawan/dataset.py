@@ -2,7 +2,7 @@ import shutil
 import os
 import polars as pl
 
-from .parallelize import parallel_map
+from .parallelize import parallel_map, is_parallel_config
 from .json_io import write_json
 
 
@@ -69,6 +69,9 @@ class Dataset:
           part (polars.LazyFrame): The partition data.
         """
         raise NotImplementedError
+
+    def _get_greedy(self, partition_index):
+        return self[partition_index].collect()
 
     def _get_partition_with_stats(self, partition_index):
         """Get a partition and the associated statistics.
@@ -204,10 +207,14 @@ class Dataset:
             concatenated.
         """
         partition_indices = list(range(self._npartitions))
-        parts = parallel_map(
-            self.__getitem__,
-            partition_indices,
-            workers=parallel,
-        )
-        return pl.concat(parts).collect()
+        if is_parallel_config(parallel):
+            parts = parallel_map(
+                self._get_greedy,
+                partition_indices,
+                workers=parallel,
+            )
+            return pl.concat(parts)
+        else:
+            parts = [self[i] for i in partition_indices]
+            return pl.concat(parts).collect()
 

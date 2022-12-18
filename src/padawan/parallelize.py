@@ -12,6 +12,12 @@ def _worker(x):
     return _func(x, **_shared_args)
 
 
+def is_parallel_config(workers):
+    if isinstance(workers, bool):
+        return workers
+    return workers < 0 or workers > 1
+
+
 def parallel_map(f, args, workers=False, shared_args=None):
     if not workers:
         workers = False

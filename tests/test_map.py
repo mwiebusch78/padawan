@@ -96,3 +96,59 @@ def test__map__preserves_all(datetime_sample):
     assert np.all(b == 2*a)
 
 
+def test__map__sequential_with_args(datetime_sample):
+    def f(df, alpha, beta=0):
+        return df.with_column((alpha*pl.col('a') + beta).alias('b'))
+
+    ds = (
+        padawan.scan_parquet(
+            datetime_sample['path'],
+            index_columns=['date', 'hour', 't'],
+        )
+        .collect_stats()
+        .map(
+            f,
+            args=[2],
+            kwargs={'beta': 3},
+            preserves='all',
+        )
+    )
+    assert ds.known_sizes is True
+    assert ds.sizes == datetime_sample['sizes']
+    assert ds.known_bounds is True
+    assert ds.lower_bounds == datetime_sample['lower_bounds']
+    assert ds.upper_bounds == datetime_sample['upper_bounds']
+
+    df = ds.collect()
+    b = df.get_column('b').to_numpy()
+    a = datetime_sample['data'].get_column('a').to_numpy()
+    assert np.all(b == 2*a + 3)
+
+
+def test__map__parallel_with_args(datetime_sample):
+    def f(df, alpha, beta=0):
+        return df.with_column((alpha*pl.col('a') + beta).alias('b'))
+
+    ds = (
+        padawan.scan_parquet(
+            datetime_sample['path'],
+            index_columns=['date', 'hour', 't'],
+        )
+        .collect_stats()
+        .map(
+            f,
+            args=[2],
+            kwargs={'beta': 3},
+            preserves='all',
+        )
+    )
+    assert ds.known_sizes is True
+    assert ds.sizes == datetime_sample['sizes']
+    assert ds.known_bounds is True
+    assert ds.lower_bounds == datetime_sample['lower_bounds']
+    assert ds.upper_bounds == datetime_sample['upper_bounds']
+
+    df = ds.collect(parallel=2)
+    b = df.get_column('b').to_numpy()
+    a = datetime_sample['data'].get_column('a').to_numpy()
+    assert np.all(b == 2*a + 3)
