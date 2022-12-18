@@ -73,6 +73,10 @@ class Dataset:
     def _get_greedy(self, partition_index):
         return self[partition_index].collect()
 
+    def __iter__(self):
+        for i in range(self._npartitions):
+            yield self[i]
+
     def _get_partition_with_stats(self, partition_index):
         """Get a partition and the associated statistics.
 

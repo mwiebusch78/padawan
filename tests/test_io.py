@@ -1,5 +1,6 @@
 import pytest
 import padawan
+import polars as pl
 
 from fixtures import (
     datetime_sample,
@@ -108,4 +109,36 @@ def test__write_parquet__parallel(datetime_sample, output_dir):
     assert ds.known_bounds is True
     assert ds.lower_bounds == datetime_sample['lower_bounds']
     assert ds.upper_bounds == datetime_sample['upper_bounds']
+
+
+def test__collect__sequential(datetime_sample):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .collect()
+    )
+    assert all(
+        (ds == datetime_sample['data'])
+        .select(pl.col('*').all()).row(0)
+    )
+
+
+def test__collect__parallel(datetime_sample):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .collect(parallel=2)
+    )
+    assert all(
+        (ds == datetime_sample['data'])
+        .select(pl.col('*').all()).row(0)
+    )
+
+
+def test__iter(datetime_sample):
+    ds = padawan.scan_parquet(datetime_sample['path'])
+    for i, part in enumerate(ds):
+        part = part.collect()
+        comp = datetime_sample['data'][24*i:24*(i+1), :]
+        assert all(
+            (part == comp).select(pl.col('*').all()).row(0)
+        )
 
