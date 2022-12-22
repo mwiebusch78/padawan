@@ -97,7 +97,7 @@ def test__map__preserves_all(datetime_sample):
 
 
 def test__map__sequential_with_args(datetime_sample):
-    def f(df, alpha, beta=0):
+    def f(df, alpha, beta):
         return df.with_column((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
@@ -108,8 +108,7 @@ def test__map__sequential_with_args(datetime_sample):
         .collect_stats()
         .map(
             f,
-            args=[2],
-            kwargs={'beta': 3},
+            shared_args=[2, 3],
             preserves='all',
         )
     )
@@ -126,7 +125,7 @@ def test__map__sequential_with_args(datetime_sample):
 
 
 def test__map__parallel_with_args(datetime_sample):
-    def f(df, alpha, beta=0):
+    def f(df, alpha, beta):
         return df.with_column((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
@@ -137,8 +136,7 @@ def test__map__parallel_with_args(datetime_sample):
         .collect_stats()
         .map(
             f,
-            args=[2],
-            kwargs={'beta': 3},
+            shared_args=[2, 3],
             preserves='all',
         )
     )

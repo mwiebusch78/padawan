@@ -8,8 +8,8 @@ class MappedDataset(Dataset):
             self,
             other,
             func,
-            args=None,
-            kwargs=None,
+            extra_args=None,
+            shared_args=None,
             index_columns=None,
             preserves='none',
     ):
@@ -41,8 +41,8 @@ class MappedDataset(Dataset):
                     'Index columns must be compatible when bounds are not '
                     'preserved.')
 
-        self._args = () if args is None else tuple(args)
-        self._kwargs = {} if kwargs is None else kwargs
+        self._extra_args = extra_args
+        self._shared_args = () if shared_args is None else tuple(shared_args)
 
         super().__init__(
             npartitions=len(other),
@@ -53,24 +53,29 @@ class MappedDataset(Dataset):
         )
 
     def __getitem__(self, partition_index):
+        if self._extra_args is None:
+            return self._func(
+                self._other[partition_index],
+                *self._shared_args).lazy()
         return self._func(
             self._other[partition_index],
-            *self._args, **self._kwargs).lazy()
+            *self._extra_args[partition_index],
+            *self._shared_args).lazy()
 
 
 def _map(
         self,
         func,
-        args=None,
-        kwargs=None,
+        extra_args=None,
+        shared_args=None,
         index_columns=None,
         preserves='none',
 ):
     return MappedDataset(
         self,
         func,
-        args=args,
-        kwargs=kwargs,
+        extra_args=extra_args,
+        shared_args=shared_args,
         index_columns=index_columns,
         preserves=preserves,
     )
