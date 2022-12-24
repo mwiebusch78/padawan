@@ -25,11 +25,40 @@ class Dataset:
     ):
         self._index_columns = tuple(index_columns)
         self._npartitions = npartitions
-        self._sizes = None if sizes is None else [int(s) for s in sizes]
-        self._lower_bounds = None if lower_bounds is None \
-            else [tuple(b) for b in lower_bounds]
-        self._upper_bounds = None if upper_bounds is None \
-            else [tuple(b) for b in upper_bounds]
+
+        self._sizes = None
+        if sizes is not None:
+            self._sizes = [int(s) for s in sizes]
+            if len(self._sizes) != self._npartitions:
+                raise ValueError('sizes has the wrong length')
+
+        self._lower_bounds = None
+        if lower_bounds is not None:
+            self._lower_bounds = [tuple(b) for b in lower_bounds]
+            if len(self._lower_bounds) != self._npartitions:
+                raise ValueError('lower_bounds has the wrong length')
+            if not all(
+                    len(b) == len(self._index_columns)
+                    for b in self._lower_bounds):
+                raise ValueError(
+                    'all lower bounds must be tuples with the same length '
+                    'as index_columns')
+
+        self._upper_bounds = None
+        if upper_bounds is not None:
+            self._upper_bounds = [tuple(b) for b in upper_bounds]
+            if len(self._upper_bounds) != self._npartitions:
+                raise ValueError('upper_bounds has the wrong length')
+            if not all(
+                    len(b) == len(self._index_columns)
+                    for b in self._upper_bounds):
+                raise ValueError(
+                    'all upper bounds must be tuples with the same length '
+                    'as index_columns')
+
+        if not self._index_columns:
+            self._lower_bounds = [()]*self._npartitions
+            self._upper_bounds = [()]*self._npartitions
 
     @property
     def index_columns(self):
@@ -121,7 +150,7 @@ class Dataset:
             `parallel = -n < 0` -- use number of available CPUs minus n
         """
         if self.known_sizes and self.known_bounds:
-            return
+            return self
         partition_indices = list(range(self._npartitions))
         stats = parallel_map(
             self._get_partition_stats,

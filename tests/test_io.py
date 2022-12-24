@@ -26,9 +26,9 @@ def test__scan_parquet__without_index_columns(datetime_sample):
     assert ds.index_columns == ()
     assert ds.known_sizes is False
     assert ds.sizes is None
-    assert ds.known_bounds is False
-    assert ds.lower_bounds is None
-    assert ds.upper_bounds is None
+    assert ds.known_bounds is True
+    assert ds.lower_bounds == [()]*len(ds)
+    assert ds.upper_bounds == [()]*len(ds)
 
 
 def test__collect_stats__sequential(datetime_sample):
@@ -61,6 +61,19 @@ def test__collect_stats__parallel(datetime_sample):
     assert ds.known_bounds is True
     assert ds.lower_bounds == datetime_sample['lower_bounds']
     assert ds.upper_bounds == datetime_sample['upper_bounds']
+
+
+def test__collect_stats__no_index_cols(datetime_sample):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .collect_stats()
+    )
+    assert ds.index_columns == ()
+    assert ds.known_sizes is True
+    assert ds.sizes == datetime_sample['sizes']
+    assert ds.known_bounds is True
+    assert ds.lower_bounds == [()]*len(ds)
+    assert ds.upper_bounds == [()]*len(ds)
 
 
 def test__write_parquet__sequential(datetime_sample, output_dir):
