@@ -251,3 +251,28 @@ class Dataset:
             parts = [self[i] for i in partition_indices]
             return pl.concat(parts).collect()
 
+    def _slice(self, lb, ub, index_columns=None):
+        if index_columns is None:
+            index_columns = self.index_columns
+        else:
+            index_columns = tuple(index_columns)
+
+        if not (self.known_bounds and index_columns):
+            return None
+        if lb is None and ub is None:
+            return None
+        if len(index_columns) > len(self.index_columns) \
+                or index_columns != self.index_columns[:len(index_columns)]:
+            raise ValueError(
+                'index_columns must be a subset of self.index_columns')
+
+        partitions = list(range(self._npartitions))
+        lower_bounds = [b[:len(index_columns)] for b in self.lower_bounds]
+        upper_bounds = [b[:len(index_columns)] for b in self.upper_bounds]
+
+        if lb is not None:
+            partitions = [p for p in partitions if lb <= upper_bounds[p]]
+        if ub is not None:
+            partitions = [p for p in partitions if lower_bounds[p] < ub]
+
+        return partitions
