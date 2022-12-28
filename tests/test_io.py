@@ -148,10 +148,12 @@ def test__collect__parallel(datetime_sample):
 
 def test__iter(datetime_sample):
     ds = padawan.scan_parquet(datetime_sample['path'])
-    for i, part in enumerate(ds):
-        part = part.collect()
+    for i in range(4):
+        part = ds[2*i].collect()
         comp = datetime_sample['data'][24*i:24*(i+1), :]
         assert all(
             (part == comp).select(pl.col('*').all()).row(0)
         )
+        part = ds[2*i+1].collect()
+        assert len(part) == 0
 

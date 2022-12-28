@@ -36,8 +36,9 @@ def datetime_sample():
     clear_directory(sample_path)
     for i in range(len(df)//partition_size):
         part = df[i*partition_size:(i+1)*partition_size, :]
-        part.write_parquet(os.path.join(sample_path, f'part{i}.parquet'))
-
+        part.write_parquet(os.path.join(sample_path, f'part{2*i}.parquet'))
+        part[:0, :].write_parquet(
+            os.path.join(sample_path, f'part{2*i+1}.parquet'))
 
     sizes = (24, 24, 24, 24)
     lower_bounds = (

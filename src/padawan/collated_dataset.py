@@ -13,7 +13,7 @@ class CollatedDataset(Dataset):
         other_upper_bounds = self._other.upper_bounds
         other_sizes = self._other.sizes
         partition_indices = sorted(
-            range(len(other)),
+            range(len(self._other)),
             key=lambda i: (other_lower_bounds[i], other_upper_bounds[i]),
         )
 

@@ -64,6 +64,8 @@ def _collect_stats(self, parallel=False):
         `parallel in [0, 1]` -- no parallelism
         `parallel = -n < 0` -- use number of available CPUs minus n
     """
+    if self.known_bounds and self.known_sizes:
+        return self
     return CollectedStatsDataset(self, parallel=parallel)
 
 Dataset.collect_stats = _collect_stats
