@@ -177,8 +177,5 @@ class RepartitionedDataset(Dataset):
             self._cached_other_partition = self._other[partition_index]
             self._cached_other_partition_index = partition_index
         return self._cached_other_partition
-
-
-    def __getitem__(self, partition_index):
         
 

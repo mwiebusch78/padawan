@@ -10,22 +10,26 @@ PARTITION_NUMBER_DIGITS = 10
 METADATA_FILE = '_padawan_metadata.json'
 
 
-def tuple_min(df):
+def lex_min(df):
+    if len(df) == 0:
+        return None
+
     columns = list(df.columns)
     for col in columns:
         if df.select(pl.col(col).is_null().any()).row(0)[0]:
             df = df.filter(pl.col(col).is_null())
         else:
             df = df.filter(pl.col(col) == pl.col(col).min())
-
     return df.row(0)
 
 
-def tuple_max(df):
+def lex_max(df):
+    if len(df) == 0:
+        return None
+
     columns = list(df.columns)
     for col in columns:
         df = df.filter(pl.col(col) == pl.col(col).max())
-
     return df.row(0)
 
 
@@ -47,13 +51,13 @@ class Dataset:
 
         self._sizes = None
         if sizes is not None:
-            self._sizes = [int(s) for s in sizes]
+            self._sizes = tuple(int(s) for s in sizes)
             if len(self._sizes) != self._npartitions:
                 raise ValueError('sizes has the wrong length')
 
         self._lower_bounds = None
         if lower_bounds is not None:
-            self._lower_bounds = [tuple(b) for b in lower_bounds]
+            self._lower_bounds = tuple(tuple(b) for b in lower_bounds)
             if len(self._lower_bounds) != self._npartitions:
                 raise ValueError('lower_bounds has the wrong length')
             if not all(
@@ -65,7 +69,7 @@ class Dataset:
 
         self._upper_bounds = None
         if upper_bounds is not None:
-            self._upper_bounds = [tuple(b) for b in upper_bounds]
+            self._upper_bounds = tuple(tuple(b) for b in upper_bounds)
             if len(self._upper_bounds) != self._npartitions:
                 raise ValueError('upper_bounds has the wrong length')
             if not all(
@@ -76,8 +80,8 @@ class Dataset:
                     'as index_columns')
 
         if not self._index_columns:
-            self._lower_bounds = [()]*self._npartitions
-            self._upper_bounds = [()]*self._npartitions
+            self._lower_bounds = ((),)*self._npartitions
+            self._upper_bounds = ((),)*self._npartitions
 
     @property
     def index_columns(self):
@@ -94,15 +98,15 @@ class Dataset:
 
     @property
     def sizes(self):
-        return None if self._sizes is None else list(self._sizes)
+        return self._sizes
 
     @property
     def lower_bounds(self):
-        return None if self._lower_bounds is None else list(self._lower_bounds)
+        return self._lower_bounds
 
     @property
     def upper_bounds(self):
-        return None if self._upper_bounds is None else list(self._upper_bounds)
+        return self._upper_bounds
 
     def __len__(self):
         return self._npartitions
@@ -143,43 +147,12 @@ class Dataset:
         nrows = len(part)
         if self._index_columns:
             index = part.select(self._index_columns)
-            lb = tuple_min(index)
-            ub = tuple_max(index)
+            lb = lex_min(index)
+            ub = lex_max(index)
         else:
             lb = ()
             ub = ()
         return part, nrows, lb, ub
-
-    def _get_partition_stats(self, partition_index):
-        _, nrows, lb, ub = self._get_partition_with_stats(partition_index)
-        return nrows, lb, ub
-
-    def collect_stats(self, parallel=False):
-        """Compute partition sizes and bounds if they are not known.
-
-        The `sizes`, `lower_bounds` and `upper_bounds` properties will be
-        set after calling `_compute_stats`.
-
-        Args:
-          parallel (bool or int): Specifies how to parallelize computation:
-            `parallel = True` -- use all available CPUs
-            `parallel = False` -- no parallelism
-            `parallel > 1` -- use `parallel` number of CPUs
-            `parallel in [0, 1]` -- no parallelism
-            `parallel = -n < 0` -- use number of available CPUs minus n
-        """
-        if self.known_sizes and self.known_bounds:
-            return self
-        partition_indices = list(range(self._npartitions))
-        stats = parallel_map(
-            self._get_partition_stats,
-            partition_indices,
-            workers=parallel,
-        )
-        self._sizes = [s[0] for s in stats]
-        self._lower_bounds = [s[1] for s in stats]
-        self._upper_bounds = [s[2] for s in stats]
-        return self
 
     def _write_partition(self, partition_index, path):
         fmt = f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'
@@ -192,6 +165,8 @@ class Dataset:
         else:
             part, nrows, lb, ub \
                 = self._get_partition_with_stats(partition_index)
+        if nrows == 0:
+            return None, 0, None, None
         part.write_parquet(os.path.join(path, filename))
         return filename, nrows, lb, ub
 
@@ -227,10 +202,10 @@ class Dataset:
             shared_args={'path': path},
         )
 
-        files = [m[0] for m in meta]
-        sizes = [m[1] for m in meta]
-        lower_bounds = [m[2] for m in meta]
-        upper_bounds = [m[3] for m in meta]
+        files = [m[0] for m in meta if m[1] > 0]
+        sizes = [m[1] for m in meta if m[1] > 0]
+        lower_bounds = [m[2] for m in meta if m[1] > 0]
+        upper_bounds = [m[3] for m in meta if m[1] > 0]
 
         meta = {
             'index_columns': self._index_columns,
@@ -269,29 +244,3 @@ class Dataset:
         else:
             parts = [self[i] for i in partition_indices]
             return pl.concat(parts).collect()
-
-    def _get_slice_partitions(self, lb, ub, index_columns=None):
-        if index_columns is None:
-            index_columns = self.index_columns
-        else:
-            index_columns = tuple(index_columns)
-
-        if not (self.known_bounds and index_columns):
-            return None
-        if lb is None and ub is None:
-            return None
-        if len(index_columns) > len(self.index_columns) \
-                or index_columns != self.index_columns[:len(index_columns)]:
-            raise ValueError(
-                'index_columns must be a subset of self.index_columns')
-
-        partitions = list(range(self._npartitions))
-        lower_bounds = [b[:len(index_columns)] for b in self.lower_bounds]
-        upper_bounds = [b[:len(index_columns)] for b in self.upper_bounds]
-
-        if lb is not None:
-            partitions = [p for p in partitions if lb <= upper_bounds[p]]
-        if ub is not None:
-            partitions = [p for p in partitions if lower_bounds[p] < ub]
-
-        return partitions

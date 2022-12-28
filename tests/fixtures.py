@@ -39,19 +39,19 @@ def datetime_sample():
         part.write_parquet(os.path.join(sample_path, f'part{i}.parquet'))
 
 
-    sizes = [24, 24, 24, 24]
-    lower_bounds = [
+    sizes = (24, 24, 24, 24)
+    lower_bounds = (
         (date(2022, 1, 1), timedelta(hours=0), datetime(2022, 1, 1, 0)),
         (date(2022, 1, 2), timedelta(hours=0), datetime(2022, 1, 2, 0)),
         (date(2022, 1, 3), timedelta(hours=0), datetime(2022, 1, 3, 0)),
         (date(2022, 1, 4), timedelta(hours=0), datetime(2022, 1, 4, 0)),
-    ]
-    upper_bounds = [
+    )
+    upper_bounds = (
         (date(2022, 1, 1), timedelta(hours=23), datetime(2022, 1, 1, 23)),
         (date(2022, 1, 2), timedelta(hours=23), datetime(2022, 1, 2, 23)),
         (date(2022, 1, 3), timedelta(hours=23), datetime(2022, 1, 3, 23)),
         (date(2022, 1, 4), timedelta(hours=23), datetime(2022, 1, 4, 23)),
-    ]
+    )
 
     yield {
         'path': sample_path,

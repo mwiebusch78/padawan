@@ -27,8 +27,8 @@ def test__scan_parquet__without_index_columns(datetime_sample):
     assert ds.known_sizes is False
     assert ds.sizes is None
     assert ds.known_bounds is True
-    assert ds.lower_bounds == [()]*len(ds)
-    assert ds.upper_bounds == [()]*len(ds)
+    assert ds.lower_bounds == ((),)*len(ds)
+    assert ds.upper_bounds == ((),)*len(ds)
 
 
 def test__collect_stats__sequential(datetime_sample):
@@ -72,8 +72,8 @@ def test__collect_stats__no_index_cols(datetime_sample):
     assert ds.known_sizes is True
     assert ds.sizes == datetime_sample['sizes']
     assert ds.known_bounds is True
-    assert ds.lower_bounds == [()]*len(ds)
-    assert ds.upper_bounds == [()]*len(ds)
+    assert ds.lower_bounds == ((),)*len(ds)
+    assert ds.upper_bounds == ((),)*len(ds)
 
 
 def test__write_parquet__sequential(datetime_sample, output_dir):
