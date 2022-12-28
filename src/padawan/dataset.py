@@ -7,7 +7,26 @@ from .json_io import write_json
 
 
 PARTITION_NUMBER_DIGITS = 10
-METADATA_FILE = '_dpart_metadata.json'
+METADATA_FILE = '_padawan_metadata.json'
+
+
+def tuple_min(df):
+    columns = list(df.columns)
+    for col in columns:
+        if df.select(pl.col(col).is_null().any()).row(0)[0]:
+            df = df.filter(pl.col(col).is_null())
+        else:
+            df = df.filter(pl.col(col) == pl.col(col).min())
+
+    return df.row(0)
+
+
+def tuple_max(df):
+    columns = list(df.columns)
+    for col in columns:
+        df = df.filter(pl.col(col) == pl.col(col).max())
+
+    return df.row(0)
 
 
 class StatsUnknownError(Exception):
@@ -124,8 +143,8 @@ class Dataset:
         nrows = len(part)
         if self._index_columns:
             index = part.select(self._index_columns)
-            lb = min(index.rows())
-            ub = max(index.rows())
+            lb = tuple_min(index)
+            ub = tuple_max(index)
         else:
             lb = ()
             ub = ()
@@ -251,7 +270,7 @@ class Dataset:
             parts = [self[i] for i in partition_indices]
             return pl.concat(parts).collect()
 
-    def _slice(self, lb, ub, index_columns=None):
+    def _get_slice_partitions(self, lb, ub, index_columns=None):
         if index_columns is None:
             index_columns = self.index_columns
         else:

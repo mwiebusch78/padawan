@@ -167,4 +167,18 @@ class RepartitionedDataset(Dataset):
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
         )
+        self._divisions = divisions
+        self._cached_other_partition = None
+        self._cached_other_partition_index = None
+
+    def _get_other_partition(self, partition_index):
+        if self._cached_other_partition_index is None \
+                or partition_index != self._cached_other_partition_index:
+            self._cached_other_partition = self._other[partition_index]
+            self._cached_other_partition_index = partition_index
+        return self._cached_other_partition
+
+
+    def __getitem__(self, partition_index):
+        
 
