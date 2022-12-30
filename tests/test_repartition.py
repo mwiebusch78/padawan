@@ -70,10 +70,11 @@ def test__get_index_divisions(datetime_sample):
         seed_increment,
         parallel,
     )
-    expected_divisions = [(timedelta(hours=h),) for h in range(6, 24, 6)]
-    expected_sizes = [24]*4
-    expected_lower_bounds = [(timedelta(hours=h),) for h in range(0, 24, 6)]
-    expected_upper_bounds = [(timedelta(hours=h),) for h in range(5, 24, 6)]
+    expected_divisions = [(timedelta(hours=h),) for h in range(5, 24, 6)]
+    expected_sizes = [22, 24, 24, 24, 4]
+    expected_lower_bounds = [(None,)] + expected_divisions
+    expected_upper_bounds = [(timedelta(hours=h),) for h in range(4, 24, 6)] \
+        + [(timedelta(hours=23),)]
     assert divisions == expected_divisions
     assert sizes == expected_sizes
     assert lower_bounds == expected_lower_bounds

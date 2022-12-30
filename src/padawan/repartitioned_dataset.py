@@ -1,5 +1,4 @@
 import polars as pl
-import numpy as np
 
 from .dataset import Dataset
 
@@ -84,12 +83,15 @@ def get_index_divisions(
         .agg(pl.col('__size').sum())
         .sort(index_columns)
         .with_column(
-            np.ceil(pl.col('__size').cumsum()/samples_per_partition)
-            .cast(pl.Int32)
+            (pl.col('__size').cumsum()/samples_per_partition)
+            .ceil().cast(pl.Int32)
             .alias('__part')
         )
         .collect()
     )
+    pl.Config.set_tbl_rows(200)
+    print(sample)
+    pl.Config.restore_defaults()
     lower_bounds = list(
         sample
         .groupby('__part')

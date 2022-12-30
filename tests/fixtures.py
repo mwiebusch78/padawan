@@ -31,18 +31,29 @@ def datetime_sample():
     a = pl.Series('a', np.arange(len(t)))
     df = pl.DataFrame([t, day, hour, a])
 
-    partition_size = 24
+    null_df = pl.DataFrame([
+        pl.Series('t', [None, None], pl.Datetime),
+        pl.Series('date', [date(2022, 1, 1), None], pl.Date),
+        pl.Series('hour', [None, timedelta(hours=0)], pl.Duration),
+        pl.Series('a', [-2, -1], pl.Int64),
+    ])
+    df = pl.concat([null_df, df])
+
+    divisions = list(range(2, len(df), 24))
+    divisions[0] = 0
+    divisions.append(len(df))
+
     sample_path = 'tests/data/datetime_sample.parquet'
     clear_directory(sample_path)
-    for i in range(len(df)//partition_size):
-        part = df[i*partition_size:(i+1)*partition_size, :]
+    for i, (start, end) in enumerate(zip(divisions[:-1], divisions[1:])):
+        part = df[start:end, :]
         part.write_parquet(os.path.join(sample_path, f'part{2*i}.parquet'))
         part[:0, :].write_parquet(
             os.path.join(sample_path, f'part{2*i+1}.parquet'))
 
-    sizes = (24, 24, 24, 24)
+    sizes = (26, 24, 24, 24)
     lower_bounds = (
-        (date(2022, 1, 1), timedelta(hours=0), datetime(2022, 1, 1, 0)),
+        (None, timedelta(hours=0), None),
         (date(2022, 1, 2), timedelta(hours=0), datetime(2022, 1, 2, 0)),
         (date(2022, 1, 3), timedelta(hours=0), datetime(2022, 1, 3, 0)),
         (date(2022, 1, 4), timedelta(hours=0), datetime(2022, 1, 4, 0)),
@@ -61,6 +72,7 @@ def datetime_sample():
         'lower_bounds': lower_bounds,
         'upper_bounds': upper_bounds,
         'data': df,
+        'divisions': divisions,
     }
 
 

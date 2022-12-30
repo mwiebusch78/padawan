@@ -150,7 +150,9 @@ def test__iter(datetime_sample):
     ds = padawan.scan_parquet(datetime_sample['path'])
     for i in range(4):
         part = ds[2*i].collect()
-        comp = datetime_sample['data'][24*i:24*(i+1), :]
+        start = datetime_sample['divisions'][i]
+        end = datetime_sample['divisions'][i+1]
+        comp = datetime_sample['data'][start:end, :]
         assert all(
             (part == comp).select(pl.col('*').all()).row(0)
         )
