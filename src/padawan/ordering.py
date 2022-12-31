@@ -4,7 +4,9 @@ import functools
 
 def _null_lt(col, val):
     if val is None:
-        return False
+#         return pl.lit(False)
+        # Work around polars bug with broadcasting boolean literals
+        return pl.col(col).is_null() & pl.col(col).is_not_null()
     return pl.col(col).is_null() | (pl.col(col) < val)
 
 
@@ -22,7 +24,9 @@ def _null_gt(col, val):
 
 def _null_geq(col, val):
     if val is None:
-        return True
+#         return pl.lit(True)
+        # Work around polars bug with broadcasting boolean literals
+        return pl.col(col).is_null() | pl.col(col).is_not_null()
     return pl.col(col) >= val
 
 

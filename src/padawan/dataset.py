@@ -233,6 +233,8 @@ class Dataset:
           data (polars.DataFrame): A single dataframe with all partitions
             concatenated.
         """
+        if self._npartitions == 0:
+            return pl.DataFrame()
         partition_indices = list(range(self._npartitions))
         if is_parallel_config(parallel):
             parts = parallel_map(

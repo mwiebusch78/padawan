@@ -3,10 +3,15 @@ __all__ = [
 ]
 
 from . import dataset
+
+# Load submodules in correct order.
+# Each of these adds methods to dataset.Dataset
 from . import collected_stats_dataset
 from . import mapped_dataset
 from . import persisted_dataset
 from . import collated_dataset
+from . import sliced_dataset
+
 from .persisted_dataset import (
     scan_parquet,
 )
