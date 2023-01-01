@@ -6,32 +6,21 @@ from .ordering import lex_key, columns_geq, columns_lt, _null_lt
 
 
 class SlicedDataset(Dataset):
-    def __init__(self, other, lb=None, ub=None, index_columns=None):
+    def __init__(self, other, lb=None, ub=None):
         if not isinstance(other, Dataset):
             raise ValueError('other must be a Dataset object')
         if not other.known_bounds:
             raise ValueError(
-                'Bounds must be known for slicing. Use collect_stats first.')
+                'Bounds must be known for slicing. Use reindex first.')
         if lb is not None:
             lb = tuple(lb)
         if ub is not None:
             ub = tuple(ub)
         self._other = other
 
-        # Determine index columns.
-        if index_columns is None:
-            index_columns = self._other.index_columns
-        else:
-            index_columns = tuple(index_columns)
-        if len(index_columns) > len(self._other.index_columns) \
-                or index_columns != \
-                self._other.index_columns[:len(index_columns)]:
-            raise ValueError(
-                'index_columns must be a subset of other.index_columns')
-
-        # Project bounds.
-        other_lbs = [b[:len(index_columns)] for b in self._other.lower_bounds]
-        other_ubs = [b[:len(index_columns)] for b in self._other.upper_bounds]
+        index_columns = self._other.index_columns
+        other_lbs = self._other.lower_bounds
+        other_ubs = self._other.upper_bounds
 
         # Determine overlapping partitions.
         partitions = list(range(len(self._other)))
@@ -92,9 +81,7 @@ class SlicedDataset(Dataset):
         other_part_index = self._partitions[partition_index]
         part = self._other[other_part_index]
         part_lb = self._other.lower_bounds[other_part_index]
-        part_lb = part_lb[:len(self._index_columns)]
         part_ub = self._other.upper_bounds[other_part_index]
-        part_ub = part_ub[:len(self._index_columns)]
         if self._lb is not None and lex_key(part_lb) < lex_key(self._lb):
             part = part.filter(columns_geq(self._index_columns, self._lb))
         if self._ub is not None and lex_key(self._ub) <= lex_key(part_ub):
@@ -103,7 +90,7 @@ class SlicedDataset(Dataset):
         return part
 
 
-def _slice(self, lb=None, ub=None, index_columns=None):
-    return SlicedDataset(self, lb=lb, ub=ub, index_columns=index_columns)
+def _slice(self, lb=None, ub=None):
+    return SlicedDataset(self, lb=lb, ub=ub)
 
 Dataset.slice = _slice
