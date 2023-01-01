@@ -11,11 +11,8 @@ from fixtures import (
 
 def test__map__preserves_none(datetime_sample):
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(lambda df: df.with_column((2*pl.col('a')).alias('b')))
     )
     assert ds.known_sizes is False
@@ -29,11 +26,8 @@ def test__map__preserves_none(datetime_sample):
 
 def test__map__preserves_bounds(datetime_sample):
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(
             lambda df: df.with_column((2*pl.col('a')).alias('b')),
             preserves='bounds',
@@ -52,11 +46,8 @@ def test__map__preserves_bounds(datetime_sample):
 
 def test__map__preserves_sizes(datetime_sample):
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(
             lambda df: df.with_column((2*pl.col('a')).alias('b')),
             preserves='sizes',
@@ -74,11 +65,8 @@ def test__map__preserves_sizes(datetime_sample):
 
 def test__map__preserves_all(datetime_sample):
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(
             lambda df: df.with_column((2*pl.col('a')).alias('b')),
             preserves='all',
@@ -101,11 +89,8 @@ def test__map__sequential_with_args(datetime_sample):
         return df.with_column((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(
             f,
             shared_args=[2, 3],
@@ -129,11 +114,8 @@ def test__map__parallel_with_args(datetime_sample):
         return df.with_column((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .map(
             f,
             shared_args=[2, 3],

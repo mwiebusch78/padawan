@@ -50,9 +50,9 @@ def test__get_row_divisions__without_tail():
 
 
 def test__get_index_divisions(datetime_sample):
-    ds = padawan.scan_parquet(
-        datetime_sample['path'],
-        index_columns=['date'],
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date'], collect_stats=False)
     )
     rows_per_partition = 24 
     sample_fraction = 1.0

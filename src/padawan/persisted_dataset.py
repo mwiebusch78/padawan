@@ -34,34 +34,18 @@ class PersistedDataset(Dataset):
 
         return [os.path.basename(f) for f in partition_paths]
 
-    def __init__(self, path, index_columns=None):
+    def __init__(self, path):
         self._path = path
 
         try:
-            files, current_index_columns, sizes, lower_bounds, upper_bounds \
+            files, index_columns, sizes, lower_bounds, upper_bounds \
                 = self._load_metadata(path)
         except FileNotFoundError:
             files = self._scan_folder(path)
             sizes = None
-            lower_bounds = None
-            upper_bounds = None
-            current_index_columns = tuple()
-
-        if index_columns is not None:
-            index_columns = tuple(index_columns)
-            num_index_columns = len(index_columns)
-            num_current_index_columns = len(current_index_columns)
-            if not (num_index_columns <= num_current_index_columns
-                    and index_columns == 
-                    current_index_columns[:num_index_columns]):
-                sizes = None
-                lower_bounds = None
-                upper_bounds = None
-            else:
-                lower_bounds = [b[:num_index_columns] for b in lower_bounds]
-                upper_bounds = [b[:num_index_columns] for b in upper_bounds]
-        else:
-            index_columns = current_index_columns
+            lower_bounds = ((),)*len(files)
+            upper_bounds = ((),)*len(files)
+            index_columns = tuple()
 
         super().__init__(
             len(files), index_columns, sizes, lower_bounds, upper_bounds)
@@ -78,5 +62,5 @@ def _read_persisted(self, path):
 Dataset._read_persisted = _read_persisted
 
 
-def scan_parquet(path, index_columns=None):
-    return PersistedDataset(path, index_columns=index_columns)
+def scan_parquet(path):
+    return PersistedDataset(path)

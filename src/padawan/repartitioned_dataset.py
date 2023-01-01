@@ -89,9 +89,6 @@ def get_index_divisions(
         )
         .collect()
     )
-    pl.Config.set_tbl_rows(200)
-    print(sample)
-    pl.Config.restore_defaults()
     lower_bounds = list(
         sample
         .groupby('__part')
@@ -139,6 +136,10 @@ class RepartitionedDataset(Dataset):
     ):
         if not isinstance(other, Dataset):
             raise ValueError('other must be a Dataset object')
+        if not other.known_sizes and other.known_bounds:
+            raise ValueError(
+                'Stats must be known when using repartition. Try calling '
+                'collect_stats() first.')
         self._other = other
 
         if by is None:
@@ -147,7 +148,6 @@ class RepartitionedDataset(Dataset):
             by = tuple(by)
 
         if not by:
-            self._other = self._other.collect_stats()
             divisions, sizes, lower_bounds, upper_bounds \
                 = get_row_divisions(self._other.sizes, rows_per_partition)
         else:
@@ -169,15 +169,23 @@ class RepartitionedDataset(Dataset):
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
         )
-        self._divisions = divisions
-        self._cached_other_partition = None
-        self._cached_other_partition_index = None
+        self._divisions = [None] + divisions + [None]
+        self._use_slicing = (
+            len(self.index_columns) <= len(self._other.index_columns)
+            and self.index_columns
+                == self._other.index_columns[:len(self.index_columns)]
+        )
 
-    def _get_other_partition(self, partition_index):
-        if self._cached_other_partition_index is None \
-                or partition_index != self._cached_other_partition_index:
-            self._cached_other_partition = self._other[partition_index]
-            self._cached_other_partition_index = partition_index
-        return self._cached_other_partition
-        
+    def __getitem__(self, partition_index):
+        if self._index_columns:
+            lb = self._divisions[partition_index]
+            ub = self._divisions[partition_index + 1]
+            if self._use_slicing:
+                return (
+                    self._other
+                    .slice(lb, ub, index_columns=self._index_columns)
+                    .collect()
+                    .lazy()
+                )
+
 

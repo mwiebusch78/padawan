@@ -16,11 +16,8 @@ def test__slice__single_partition(datetime_sample):
     ub = (date(2022, 1, 2), timedelta(hours=18))
 
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 
@@ -39,11 +36,8 @@ def test__slice__two_partitions(datetime_sample):
     ub = (date(2022, 1, 3), timedelta(hours=18))
 
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 
@@ -60,11 +54,8 @@ def test__slice__two_partitions(datetime_sample):
 
 def test__slice__null_bounds(datetime_sample):
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(None, None, index_columns=['date', 'hour'])
     )
 
@@ -77,11 +68,8 @@ def test__slice__no_upper_bound(datetime_sample):
     lb = (date(2022, 1, 2), timedelta(hours=6))
     ub = None
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 
@@ -97,11 +85,8 @@ def test__slice__no_lower_bound(datetime_sample):
     lb = None
     ub = (date(2022, 1, 3), timedelta(hours=18))
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 
@@ -120,11 +105,8 @@ def test__slice__null_in_bounds(datetime_sample):
     lb = (None, timedelta(hours=-10))
     ub = (date(2022, 1, 1), None)
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 
@@ -142,11 +124,8 @@ def test__slice__flipped_bounds(datetime_sample):
     lb = (date(2022, 1, 1), None)
     ub = (None, timedelta(hours=-10))
     ds = (
-        padawan.scan_parquet(
-            datetime_sample['path'],
-            index_columns=['date', 'hour', 't'],
-        )
-        .collect_stats()
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour', 't'])
         .slice(lb, ub, index_columns=['date', 'hour'])
     )
 

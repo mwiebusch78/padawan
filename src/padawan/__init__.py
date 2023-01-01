@@ -6,7 +6,7 @@ from . import dataset
 
 # Load submodules in correct order.
 # Each of these adds methods to dataset.Dataset
-from . import collected_stats_dataset
+from . import reindexed_dataset
 from . import mapped_dataset
 from . import persisted_dataset
 from . import collated_dataset

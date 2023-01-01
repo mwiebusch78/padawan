@@ -129,11 +129,16 @@ class Dataset:
         for i in range(self._npartitions):
             yield self[i]
 
-    def _get_partition_with_stats(self, partition_index):
+    def _get_partition_with_stats(self, partition_index, index_columns=None):
         """Get a partition and the associated statistics.
 
         Args:
             partition_index (int): The index of the partition.
+
+        Kwargs:
+          index_columns (tuple of str, optional): The index columns to use
+            for computing the stats. Defaults to ``None``, in which case
+            ``self.index_columns`` is used.
 
         Returns:
           part (polars.LazyFrame): The partition data.
@@ -143,10 +148,15 @@ class Dataset:
           ub (tuple): The upper bound of the partition.
             (One element for each index column.)
         """
+        if index_columns is None:
+            index_columns = self._index_columns
+        else:
+            index_columns = tuple(index_columns)
+
         part = self[partition_index].collect()
         nrows = len(part)
-        if self._index_columns:
-            index = part.select(self._index_columns)
+        if index_columns:
+            index = part.select(index_columns)
             lb = lex_min(index)
             ub = lex_max(index)
         else:
