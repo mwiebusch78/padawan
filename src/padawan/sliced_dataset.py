@@ -77,7 +77,7 @@ class SlicedDataset(Dataset):
         self._lb = lb
         self._ub = ub
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         other_part_index = self._partitions[partition_index]
         part = self._other[other_part_index]
         part_lb = self._other.lower_bounds[other_part_index]

@@ -111,7 +111,7 @@ class Dataset:
     def __len__(self):
         return self._npartitions
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         """Get a partition of the dataset.
 
         Args:
@@ -121,6 +121,14 @@ class Dataset:
           part (polars.LazyFrame): The partition data.
         """
         raise NotImplementedError
+
+    def __getitem__(self, partition_index):
+        orig_index = partition_index
+        if partition_index < 0:
+            partition_index = self._npartitions + partition_index
+        if partition_index >= self._npartitions or partition_index < 0:
+            raise IndexError(f'Partition index {orig_index} is out of range.')
+        return self._get_partition(partition_index)
 
     def _get_greedy(self, partition_index):
         return self[partition_index].collect()

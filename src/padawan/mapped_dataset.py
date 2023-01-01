@@ -52,7 +52,7 @@ class MappedDataset(Dataset):
             upper_bounds=upper_bounds,
         )
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         if self._extra_args is None:
             return self._func(
                 self._other[partition_index],

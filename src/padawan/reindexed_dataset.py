@@ -75,7 +75,7 @@ class ReindexedDataset(Dataset):
         )
         self._partition_indices = partition_indices
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         if self._partition_indices is None:
             return self._other[partition_index]
         return self._other[self._partition_indices[partition_index]]

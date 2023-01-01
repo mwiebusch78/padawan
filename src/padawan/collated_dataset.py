@@ -68,7 +68,7 @@ class CollatedDataset(Dataset):
         )
         self._batches = batches
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         batch = self._batches[partition_index]
         parts = [self._other[i] for i in batch]
         return pl.concat(parts)

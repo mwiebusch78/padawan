@@ -51,7 +51,7 @@ class PersistedDataset(Dataset):
             len(files), index_columns, sizes, lower_bounds, upper_bounds)
         self._files = files
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         path = os.path.join(self._path, self._files[partition_index])
         part = pl.scan_parquet(path)
         return part

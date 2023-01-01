@@ -166,7 +166,7 @@ class RepartitionedDataset(Dataset):
         )
         self._divisions = [None] + divisions + [None]
 
-    def __getitem__(self, partition_index):
+    def _get_partition(self, partition_index):
         lb = self._divisions[partition_index]
         ub = self._divisions[partition_index + 1]
         if self.index_columns:
