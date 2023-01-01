@@ -128,7 +128,6 @@ class RepartitionedDataset(Dataset):
             self,
             other,
             rows_per_partition,
-            by=None,
             sample_fraction=1.0,
             parallel=False,
             base_seed=10,
@@ -139,15 +138,11 @@ class RepartitionedDataset(Dataset):
         if not other.known_sizes and other.known_bounds:
             raise ValueError(
                 'Stats must be known when using repartition. Try calling '
-                'collect_stats() first.')
+                'reindex() first.')
         self._other = other
 
-        if by is None:
-            by = self._other.index_columns
-        else:
-            by = tuple(by)
-
-        if not by:
+        index_columns = self._other.index_columns
+        if not index_columns:
             divisions, sizes, lower_bounds, upper_bounds \
                 = get_row_divisions(self._other.sizes, rows_per_partition)
         else:
@@ -156,7 +151,7 @@ class RepartitionedDataset(Dataset):
                     ds=self._other,
                     rows_per_partition=rows_per_partition,
                     sample_fraction=sample_fraction,
-                    index_columns=by,
+                    index_columns=index_columns,
                     base_seed=base_seed,
                     seed_increment=seed_increment,
                     parallel=parallel,
@@ -164,28 +159,58 @@ class RepartitionedDataset(Dataset):
 
         super().__init__(
             npartitions=len(divisions) + 1,
-            index_columns=by,
+            index_columns=index_columns,
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
         )
         self._divisions = [None] + divisions + [None]
-        self._use_slicing = (
-            len(self.index_columns) <= len(self._other.index_columns)
-            and self.index_columns
-                == self._other.index_columns[:len(self.index_columns)]
-        )
 
     def __getitem__(self, partition_index):
-        if self._index_columns:
-            lb = self._divisions[partition_index]
-            ub = self._divisions[partition_index + 1]
-            if self._use_slicing:
-                return (
-                    self._other
-                    .slice(lb, ub, index_columns=self._index_columns)
-                    .collect()
-                    .lazy()
-                )
+        lb = self._divisions[partition_index]
+        ub = self._divisions[partition_index + 1]
+        if self.index_columns:
+            return (
+                self._other
+                .slice(lb, ub)
+                .collect()
+                .lazy()
+            )
+        else:
+            from_part = 0
+            to_part = len(self._other) - 1
+            from_row = None
+            to_row = None
+            if lb is not None:
+                from_part, from_row = lb
+            if ub is not None:
+                to_part, to_row = ub
 
+            parts = []
+            for i_part in range(from_part, to_part + 1):
+                part = self._other[i_part].collect()
+                row_beg = from_row if i_part == from_part else None
+                row_end = to_row if i_part == to_part else None
+                parts.append(part[slice(row_beg, row_end), :])
+            return pl.concat(parts).lazy()
+
+
+def _repartition(
+        self, 
+        rows_per_partition,
+        sample_fraction=1.0,
+        parallel=False,
+        base_seed=10,
+        seed_increment=10,
+):
+    return RepartitionedDataset(
+        self,
+        rows_per_partition,
+        sample_fraction=sample_fraction,
+        parallel=parallel,
+        base_seed=base_seed,
+        seed_increment=seed_increment,
+    )
+
+Dataset.repartition = _repartition
 

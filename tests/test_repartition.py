@@ -1,6 +1,8 @@
 import pytest
 import padawan
+import math
 from datetime import datetime, timedelta
+import polars as pl
 
 from padawan.repartitioned_dataset import (
     get_row_divisions,
@@ -11,6 +13,10 @@ from fixtures import (
     datetime_sample,
     output_dir,
 )
+
+
+def dataframe_eq(df1, df2):
+    return all((df1 == df2).select(pl.col('*').all()).row(0))
 
 
 def test__get_row_divisions__nothing_to_do():
@@ -79,4 +85,66 @@ def test__get_index_divisions(datetime_sample):
     assert sizes == expected_sizes
     assert lower_bounds == expected_lower_bounds
     assert upper_bounds == expected_upper_bounds
+
+
+def test__repartition__indexed(datetime_sample):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['hour'])
+        .repartition(24)
+    )
+
+    assert len(ds) == 5
+
+    assert dataframe_eq(
+        ds[0].collect(),
+        datetime_sample['data'].filter(
+            pl.col('hour').is_null()
+            | (pl.col('hour') <= timedelta(hours=4))
+        ),
+    )
+    assert dataframe_eq(
+        ds[1].collect(),
+        datetime_sample['data'].filter(
+            (pl.col('hour') >= timedelta(hours=5))
+            & (pl.col('hour') <= timedelta(hours=10))
+        ),
+    )
+    assert dataframe_eq(
+        ds[2].collect(),
+        datetime_sample['data'].filter(
+            (pl.col('hour') >= timedelta(hours=11))
+            & (pl.col('hour') <= timedelta(hours=16))
+        ),
+    )
+    assert dataframe_eq(
+        ds[3].collect(),
+        datetime_sample['data'].filter(
+            (pl.col('hour') >= timedelta(hours=17))
+            & (pl.col('hour') <= timedelta(hours=22))
+        ),
+    )
+    assert dataframe_eq(
+        ds[4].collect(),
+        datetime_sample['data'].filter(
+            pl.col('hour') == timedelta(hours=23)
+        ),
+    )
+    
+
+def test__repartition__no_index(datetime_sample):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex()
+        .repartition(10)
+    )
+
+    num_partitions = math.ceil(len(datetime_sample['data'])/10)
+    assert len(ds) == num_partitions
+    for i in range(num_partitions):
+        assert dataframe_eq(
+            ds[i].collect(),
+            datetime_sample['data'][10*i:10*(i+1), :],
+        )
+
 
