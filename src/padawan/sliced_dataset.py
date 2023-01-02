@@ -72,6 +72,7 @@ class SlicedDataset(Dataset):
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
+            schema=self._other._schema,
         )
         self._partitions = partitions
         self._lb = lb

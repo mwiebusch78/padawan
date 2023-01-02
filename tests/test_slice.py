@@ -5,10 +5,7 @@ from datetime import date, datetime, timedelta
 
 
 from fixtures import datetime_sample
-
-
-def dataframe_eq(df1, df2):
-    return all((df1 == df2).select(pl.col('*').all()).row(0))
+from utils import dataframe_eq
 
 
 def test__slice__single_partition(datetime_sample):

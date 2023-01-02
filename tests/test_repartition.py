@@ -14,9 +14,7 @@ from fixtures import (
     output_dir,
 )
 
-
-def dataframe_eq(df1, df2):
-    return all((df1 == df2).select(pl.col('*').all()).row(0))
+from utils import dataframe_eq
 
 
 def test__get_row_divisions__nothing_to_do():

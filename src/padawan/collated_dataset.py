@@ -65,6 +65,7 @@ class CollatedDataset(Dataset):
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
+            schema=self._other._schema,
         )
         self._batches = batches
 

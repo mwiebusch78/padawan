@@ -8,6 +8,7 @@ from .json_io import write_json
 
 PARTITION_NUMBER_DIGITS = 10
 METADATA_FILE = '_padawan_metadata.json'
+SCHEMA_FILE = '_padawan_schema'
 
 
 def lex_min(df):
@@ -33,6 +34,10 @@ def lex_max(df):
     return df.row(0)
 
 
+def dataframe_from_schema(schema):
+    return pl.DataFrame([pl.Series(c, [], dtype=t) for c, t in schema.items()])
+
+
 class StatsUnknownError(Exception):
     pass
 
@@ -45,9 +50,18 @@ class Dataset:
             sizes=None,
             lower_bounds=None,
             upper_bounds=None,
+            schema=None,
     ):
         self._index_columns = tuple(index_columns)
+
+        npartitions = int(npartitions)
+        if npartitions < 0:
+            raise ValueError('Number of partitions cannot be negative')
+        if npartitions == 0 and schema is None:
+            raise ValueError(
+                'schema must be specified when number of partitions is zero.')
         self._npartitions = npartitions
+        self._schema = schema
 
         self._sizes = None
         if sizes is not None:
@@ -107,6 +121,16 @@ class Dataset:
     @property
     def upper_bounds(self):
         return self._upper_bounds
+
+    @property
+    def known_schema(self):
+        return self._schema is not None
+
+    @property
+    def schema(self):
+        if self._schema is not None:
+            return self._schema.copy()
+        return None
 
     def __len__(self):
         return self._npartitions
@@ -183,10 +207,15 @@ class Dataset:
         else:
             part, nrows, lb, ub \
                 = self._get_partition_with_stats(partition_index)
+
+        schema = None
+        if partition_index == 0:
+            schema = part.schema
+
         if nrows == 0:
-            return None, 0, None, None
+            return None, 0, None, None, schema
         part.write_parquet(os.path.join(path, filename))
-        return filename, nrows, lb, ub
+        return filename, nrows, lb, ub, schema
 
     def write_parquet(self, path, parallel=False):
         """Write the dataset to disk.
@@ -224,6 +253,10 @@ class Dataset:
         sizes = [m[1] for m in meta if m[1] > 0]
         lower_bounds = [m[2] for m in meta if m[1] > 0]
         upper_bounds = [m[3] for m in meta if m[1] > 0]
+        if meta:
+            schema = meta[0][4]
+        else:
+            schema = self._schema
 
         meta = {
             'index_columns': self._index_columns,
@@ -233,6 +266,8 @@ class Dataset:
             'upper_bounds': upper_bounds,
         }
         write_json(meta, os.path.join(path, METADATA_FILE))
+        dataframe_from_schema(schema).write_parquet(
+            os.path.join(path, SCHEMA_FILE))
 
         return self._read_persisted(path)
 
@@ -252,7 +287,8 @@ class Dataset:
             concatenated.
         """
         if self._npartitions == 0:
-            return pl.DataFrame()
+            return dataframe_from_schema(self._schema)
+
         partition_indices = list(range(self._npartitions))
         if is_parallel_config(parallel):
             parts = parallel_map(

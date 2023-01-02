@@ -163,6 +163,7 @@ class RepartitionedDataset(Dataset):
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
+            schema=self._other._schema,
         )
         self._divisions = [None] + divisions + [None]
 

@@ -50,6 +50,7 @@ class MappedDataset(Dataset):
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
+            schema=None,
         )
 
     def _get_partition(self, partition_index):

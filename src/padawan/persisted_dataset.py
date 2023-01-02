@@ -2,7 +2,7 @@ import glob
 import os
 import polars as pl
 
-from .dataset import Dataset, METADATA_FILE
+from .dataset import Dataset, METADATA_FILE, SCHEMA_FILE
 from .json_io import read_json
 
 
@@ -13,6 +13,8 @@ class StatsNotFoundError(Exception):
 class PersistedDataset(Dataset):
     def _load_metadata(self, path):
         meta = read_json(os.path.join(path, METADATA_FILE))
+        schema = pl.read_parquet(
+            os.path.join(path, SCHEMA_FILE)).schema
     
         index_columns = tuple(meta['index_columns'])
         files = meta['files']
@@ -23,7 +25,7 @@ class PersistedDataset(Dataset):
         assert len(files) == len(sizes)
         assert len(files) == len(lower_bounds)
         assert len(files) == len(upper_bounds)
-        return files, index_columns, sizes, lower_bounds, upper_bounds
+        return files, index_columns, sizes, lower_bounds, upper_bounds, schema
 
     def _scan_folder(self, path):
         path_pattern = os.path.join(path, '*.parquet')
@@ -38,7 +40,7 @@ class PersistedDataset(Dataset):
         self._path = path
 
         try:
-            files, index_columns, sizes, lower_bounds, upper_bounds \
+            files, index_columns, sizes, lower_bounds, upper_bounds, schema \
                 = self._load_metadata(path)
         except FileNotFoundError:
             files = self._scan_folder(path)
@@ -46,9 +48,16 @@ class PersistedDataset(Dataset):
             lower_bounds = ((),)*len(files)
             upper_bounds = ((),)*len(files)
             index_columns = tuple()
+            schema=None
 
         super().__init__(
-            len(files), index_columns, sizes, lower_bounds, upper_bounds)
+            len(files),
+            index_columns,
+            sizes,
+            lower_bounds,
+            upper_bounds,
+            schema,
+        )
         self._files = files
 
     def _get_partition(self, partition_index):

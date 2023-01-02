@@ -6,9 +6,12 @@ from .parallelize import parallel_map
 
 class ReindexedDataset(Dataset):
     def _get_partition_stats(self, partition_index, index_columns):
-        _, nrows, lb, ub = self._other._get_partition_with_stats(
+        part, nrows, lb, ub = self._other._get_partition_with_stats(
                 partition_index, index_columns=index_columns)
-        return nrows, lb, ub
+        schema = None
+        if partition_index == 0:
+            schema = part.schema
+        return nrows, lb, ub, schema
 
     def __init__(
             self,
@@ -26,6 +29,7 @@ class ReindexedDataset(Dataset):
         else:
             index_columns = tuple(index_columns)
 
+        schema = self._other._schema
         if self._other.known_bounds and self._other.known_sizes and \
                 len(index_columns) <= len(self._other.index_columns) \
                 and index_columns == \
@@ -48,6 +52,7 @@ class ReindexedDataset(Dataset):
             sizes = [s[0] for s in stats]
             lower_bounds = [s[1] for s in stats]
             upper_bounds = [s[2] for s in stats]
+            schema = stats[0][3]
 
             partition_indices = [
                 i for i, s in zip(partition_indices, sizes) if s > 0]
@@ -66,12 +71,16 @@ class ReindexedDataset(Dataset):
             lower_bounds = None
             upper_bounds = None
 
+        if schema is None and len(self._other) > 0:
+            schema = self._other[0].schema
+
         super().__init__(
             npartitions=npartitions,
             index_columns=index_columns,
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
+            schema=schema,
         )
         self._partition_indices = partition_indices
 

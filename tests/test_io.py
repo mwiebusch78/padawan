@@ -6,6 +6,7 @@ from fixtures import (
     datetime_sample,
     output_dir,
 )
+from utils import dataframe_from_schema, dataframe_eq
 
 
 def test__scan_parquet__with_index_columns(datetime_sample):
@@ -112,6 +113,44 @@ def test__write_parquet__parallel(datetime_sample, output_dir):
     assert ds.known_bounds is True
     assert ds.lower_bounds == datetime_sample['lower_bounds']
     assert ds.upper_bounds == datetime_sample['upper_bounds']
+
+
+def test__write_parquet__empty(datetime_sample, output_dir):
+    schema = {'a': pl.Int64, 'b': pl.Float64}
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .map(lambda part: dataframe_from_schema(schema))
+        .reindex(['a'])
+        .write_parquet(output_dir)
+    )
+    assert len(ds) == 0
+    assert ds.schema == schema
+    assert ds.collect().schema == schema
+
+
+def test__write_parquet__empty_unknown_schema(datetime_sample, output_dir):
+    schema = {'a': pl.Int64, 'b': pl.Float64}
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .map(lambda part: dataframe_from_schema(schema))
+        .write_parquet(output_dir)
+    )
+    assert len(ds) == 0
+    assert ds.schema == schema
+    assert ds.collect().schema == schema
+
+
+def test__write_parquet__empty_unknown_stats(datetime_sample, output_dir):
+    schema = {'a': pl.Int64, 'b': pl.Float64}
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .map(lambda part: dataframe_from_schema(schema))
+        .reindex(['a'], collect_stats=False)
+        .write_parquet(output_dir)
+    )
+    assert len(ds) == 0
+    assert ds.schema == schema
+    assert ds.collect().schema == schema
 
 
 def test__collect__sequential(datetime_sample):
