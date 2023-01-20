@@ -77,6 +77,46 @@ def datetime_sample():
 
 
 @pytest.fixture
+def date_sample():
+    t0 = datetime(2022, 1, 2)
+    t1 = datetime(2022, 1, 6)
+    dt = timedelta(days=1)
+    t = pl.date_range(t0, t1, dt, name='t', closed='left')
+    day = t.dt.truncate('1d').cast(pl.Date).alias('date')
+    x = pl.Series('x', np.arange(len(day)))
+    df = pl.DataFrame([day, x])
+
+
+    divisions = [0, 2, 4]
+
+    sample_path = 'tests/data/date_sample.parquet'
+    clear_directory(sample_path)
+    for i, (start, end) in enumerate(zip(divisions[:-1], divisions[1:])):
+        part = df[start:end, :]
+        part.write_parquet(os.path.join(sample_path, f'part{i}.parquet'))
+
+    sizes = (2, 2)
+    lower_bounds = (
+        (date(2022, 1, 2),),
+        (date(2022, 1, 4),),
+    )
+    upper_bounds = (
+        (date(2022, 1, 3),),
+        (date(2022, 1, 5),),
+    )
+
+    yield {
+        'path': sample_path,
+        'index_columns': ('date',),
+        'sizes': sizes,
+        'lower_bounds': lower_bounds,
+        'upper_bounds': upper_bounds,
+        'data': df,
+        'divisions': divisions,
+    }
+
+
+@pytest.fixture
 def output_dir():
     output_path = 'tests/data/result.parquet'
     remove_directory(output_path)

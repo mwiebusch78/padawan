@@ -11,6 +11,7 @@ from . import mapped_dataset
 from . import persisted_dataset
 from . import collated_dataset
 from . import sliced_dataset
+from . import joined_dataset
 
 from .persisted_dataset import (
     scan_parquet,
