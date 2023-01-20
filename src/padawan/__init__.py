@@ -8,6 +8,7 @@ from . import dataset
 # Each of these adds methods to dataset.Dataset
 from . import reindexed_dataset
 from . import mapped_dataset
+from . import renamed_dataset
 from . import persisted_dataset
 from . import collated_dataset
 from . import sliced_dataset
