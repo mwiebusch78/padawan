@@ -43,6 +43,18 @@ class StatsUnknownError(Exception):
 
 
 class Dataset:
+    """Abstract base class for datasets.
+
+    This class has the semantics of a list of ``polars.LazyFrame`` objects.
+    For an instance ``ds`` of this class you can use ``len(ds)`` to get
+    the number of partitions, ``ds[i]`` to access the *i*-th partition and
+    ``for part in ds`` to iterate over partitions.
+
+    Usually you will use :py:func:`padawan.scan_parquet` to create
+    ``Dataset`` instances, so you will not need to instantiate this class
+    or any of its derived classes directly. 
+    """
+
     def __init__(
             self,
             npartitions,
@@ -99,35 +111,102 @@ class Dataset:
 
     @property
     def index_columns(self):
+        """A tuple of strings with the index columns of the dataset.
+
+        ``padawan`` tries to keep track of the upper and lower bounds of the
+        index columns in each partition. The :py:meth:`padawan.Dataset.slice`
+        and :py:meth:`padawan.Dataset.join` methods implement joining and
+        slicing on the current index columns.
+
+        """
         return self._index_columns
 
     @property
     def known_bounds(self):
+        """``True`` if the partition bounds are known.
+
+        """
         return self._lower_bounds is not None \
             and self._upper_bounds is not None
 
     @property
     def known_sizes(self):
+        """``True`` if the partition sizes (number of rows) are known.
+
+        """
         return self._sizes is not None
 
     @property
     def sizes(self):
+        """A tuple of integers holding the number of rows for each partition.
+
+        ``None`` if the partition sizes are not known.
+
+        """
         return self._sizes
 
     @property
     def lower_bounds(self):
+        """A tuple holding the lower bounds for each partition.
+
+        The length of ``lower_bounds`` is equal to the number of partitions.
+        Each lower bound is a tuple with the same length as
+        :py:attr:`padawan.Dataset.index_columns`.  Bounds are computed by
+        constructing tuples from the index columns and using lexicographic
+        ordering. So, a partition with index columns ``('a', 'b')`` and data
+
+            = =
+            a b  
+            = =
+            2 3
+            1 2
+            2 1
+            = =
+
+        will have the lower bound ``(1, 2)`` since the second row would become
+        the first when the data is sorted by (`a`, `b`).
+
+        """
         return self._lower_bounds
 
     @property
     def upper_bounds(self):
+        """A tuple holding the lower bounds for each partition.
+
+        The length of ``upper_bounds`` is equal to the number of partitions.
+        Each upper bound is a tuple with the same length as
+        :py:attr:`padawan.Dataset.index_columns`.  Bounds are computed by
+        constructing tuples from the index columns and using lexicographic
+        ordering. So, a partition with index columns ``('a', 'b')`` and data
+
+            = =
+            a b  
+            = =
+            2 1
+            1 3
+            1 2
+            = =
+
+        will have the upper bound ``(2, 1)`` since the first row would become
+        the last when the data is sorted by (`a`, `b`).
+
+        """
         return self._upper_bounds
 
     @property
     def known_schema(self):
+        """``True`` if the table schema is known.
+
+        """
         return self._schema is not None
 
     @property
     def schema(self):
+        """A dict mapping column names to ``polars`` data types.
+
+        Will be ``None`` if the schema is not known.
+
+        """
         if self._schema is not None:
             return self._schema.copy()
         return None
@@ -165,9 +244,7 @@ class Dataset:
         """Get a partition and the associated statistics.
 
         Args:
-            partition_index (int): The index of the partition.
-
-        Kwargs:
+          partition_index (int): The index of the partition.
           index_columns (tuple of str, optional): The index columns to use
             for computing the stats. Defaults to ``None``, in which case
             ``self.index_columns`` is used.
@@ -224,14 +301,19 @@ class Dataset:
           path (str): The directory that will contain the parquet files.
             If a file or directory with that name exists it will be deleted
             first.
+          parallel (bool or int): Specifies how to parallelize the computation:
 
-        Kwargs:
-          parallel (bool or int): Specifies how to parallelize computation:
-            `parallel = True` -- use all available CPUs
-            `parallel = False` -- no parallelism
-            `parallel > 1` -- use `parallel` number of CPUs
-            `parallel in [0, 1]` -- no parallelism
-            `parallel = -n < 0` -- use number of available CPUs minus n
+              ``parallel = True``
+                use all available CPUs
+              ``parallel = False``
+                no parallelism
+              ``parallel > 1``
+                use ``parallel`` number of CPUs
+              ``parallel in [0, 1]``
+                no parallelism
+              ``parallel = -n < 0``
+                use number of available CPUs minus n
+
         """
         try:
             shutil.rmtree(path)
@@ -274,13 +356,19 @@ class Dataset:
     def collect(self, parallel=False):
         """Pull all data into memory.
 
-        Kwargs:
-          parallel (bool or int): Specifies how to parallelize computation:
-            `parallel = True` -- use all available CPUs
-            `parallel = False` -- no parallelism
-            `parallel > 1` -- use `parallel` number of CPUs
-            `parallel in [0, 1]` -- no parallelism
-            `parallel = -n < 0` -- use number of available CPUs minus n
+        Args:
+          parallel (bool or int): Specifies how to parallelize the computation:
+
+              ``parallel = True``
+                use all available CPUs
+              ``parallel = False``
+                no parallelism
+              ``parallel > 1``
+                use ``parallel`` number of CPUs
+              ``parallel in [0, 1]``
+                no parallelism
+              ``parallel = -n < 0``
+                use number of available CPUs minus n
 
         Returns:
           data (polars.DataFrame): A single dataframe with all partitions
