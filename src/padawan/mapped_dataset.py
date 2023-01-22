@@ -72,6 +72,9 @@ def _map(
         index_columns=None,
         preserves='none',
 ):
+    """Apply a function to all partitions.
+
+    """
     return MappedDataset(
         self,
         func,

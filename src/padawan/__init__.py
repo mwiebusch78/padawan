@@ -14,8 +14,6 @@ from . import collated_dataset
 from . import sliced_dataset
 from . import joined_dataset
 
-from .persisted_dataset import (
-    scan_parquet,
-)
-
+from .persisted_dataset import scan_parquet
+from .dataset import Dataset
 

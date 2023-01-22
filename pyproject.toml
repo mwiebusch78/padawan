@@ -1,19 +1,28 @@
-[tool.poetry]
-name = "padawan"
-version = "0.1.0"
-description = "Wrangle partitioned data with polars."
-authors = ["Martin Wiebusch"]
-license = "GNU General Public License v3.0"
-readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.10"
-
-[tool.poetry.dev-dependencies]
-
 [build-system]
-requires = ["poetry-core>=1.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "padawan"
+version = "0.0.1"
+authors = [
+  { name="Martin Wiebusch", email="mwiebusch78@gmail.com" },
+]
+description = "Wrangle partitioned data with polars."
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "polars >= 0.15.9"
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
 
 [tool.pytest.ini_options]
 pythonpath = [
