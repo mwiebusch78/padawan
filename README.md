@@ -8,18 +8,15 @@ Wrangle partitioned data with polars.
 $ pip install padawan
 ```
 
-## Usage
+## Documentation
 
-- TODO
+[padawan](https://github.com/mwiebusch78/padawan) is a tool for out-of-core
+processing of partitioned tabular datasets which are too large to hold
+completely in memory. It uses
+[polars](https://pola-rs.github.io/polars/py-polars/html/index.html) for
+representing and manipulating tabular data in memory and the parquet format
+for storing partitions on disk.
 
-## Contributing
+The full documentation is hosted at
+[readthedocs.io](https://padawan.readthedocs.io/en/latest/).
 
-Interested in contributing? Check out the contributing guidelines. Please note that this project is released with a Code of Conduct. By contributing to this project, you agree to abide by its terms.
-
-## License
-
-`padawan` was created by Martin Wiebusch. It is licensed under the terms of the GNU General Public License v3.0 license.
-
-## Credits
-
-`padawan` was created with [`cookiecutter`](https://cookiecutter.readthedocs.io/en/latest/) and the `py-pkgs-cookiecutter` [template](https://github.com/py-pkgs/py-pkgs-cookiecutter).
