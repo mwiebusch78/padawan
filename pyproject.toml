@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "padawan"
 version = "0.1"
 authors = [
-  { name="Martin Wiebusch", email="mwiebusch78@gmail.com" },
+  { name="Martin Wiebusch" },
 ]
 description = "Wrangle partitioned data with polars."
 readme = "README.md"
