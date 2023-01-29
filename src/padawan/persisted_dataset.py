@@ -72,4 +72,21 @@ Dataset._read_persisted = _read_persisted
 
 
 def scan_parquet(path):
+    """Read partitioned data from disk.
+
+    Args:
+      path (str): Path to a directory holding the partitioned data. Each file
+        under `path` ending in ``.parquet`` will become a partition of the
+        dataset. Metadata about the partitions such as schema, partition
+        sizes and bounds may be stored in special files named
+        ``_padawan_metadata.json`` and ``_padawan_schema``. These files are
+        created automatically when the data is written with
+        :py:meth:`padawan.Dataset.write_parquet`. If they are not present
+        the resulting :py:class:`padawan.Dataset` will have unknown bounds
+        and sizes.
+
+    Returns:
+      padawan.Dataset: A dataset representing the data under `path`.
+
+    """
     return PersistedDataset(path)

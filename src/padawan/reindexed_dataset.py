@@ -95,19 +95,35 @@ def _reindex(self, index_columns=None, collect_stats=True, parallel=False):
 
     Args:
       index_columns (tuple of str, optional): The columns to used as index.
-        If ``None``, partition sizes and bounds are computed for the current
-        index columns.
+        Defaults to ``None``, in which case partition sizes and bounds are
+        computed for the current index columns.
+
+        If `index_columns` is a truncation of the current index
+        columns (e.g. ``self.index_columns`` is ``('a', 'b', 'c')`` and
+        `index_columns` is ``('a', 'b')``) the new partition bounds can and
+        will be computed purely from the metadata and without loading any
+        partitions into memory.
       collect_stats (bool, optional): Whether to compute the sizes and
         index bounds of the partitions if they are not known. Defaults to
         ``True``.
       parallel (bool or int, optional): Specifies how to parallelize the
         computation:
 
-          ``parallel = True`` -- use all available CPUs
-          ``parallel = False`` -- no parallelism
-          ``parallel > 1`` -- use `parallel` number of CPUs
-          ``parallel in [0, 1]`` -- no parallelism
-          ``parallel = -n < 0`` -- use number of available CPUs minus n
+          ``parallel = True``
+            use all available CPUs
+          ``parallel = False``
+            no parallelism
+          ``parallel > 1``
+            use ``parallel`` number of CPUs
+          ``parallel in [0, 1]``
+            no parallelism
+          ``parallel = -n < 0``
+            use number of available CPUs minus n
+
+        Defaults to ``False``.
+
+    Returns:
+      padawan.Dataset: The reindexed dataset.
     """
     if self.known_bounds and self.known_sizes and (
             index_columns is None

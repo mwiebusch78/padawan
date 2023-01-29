@@ -38,6 +38,15 @@ class RenamedDataset(Dataset):
 
 
 def _rename(self, mapping):
+    """Rename columns of the dataset.
+
+    Args:
+      mapping (dict): A dictionary mapping old column names to the new ones.
+
+    Returns:
+      padawan.Dataset: The dataset with renamed columns.
+
+    """
     return RenamedDataset(self, mapping)
 Dataset.rename = _rename
 

@@ -20,6 +20,10 @@ class MappedDataset(Dataset):
 
         preserves_sizes = preserves in ['all', 'sizes']
         preserves_bounds = preserves in ['all', 'bounds']
+        if preserves_bounds and index_columns is not None:
+            if tuple(index_columns) != other.index_columns:
+                raise ValueError(
+                    'Index columns cannot change when bounds are preserved.')
         
         sizes = None
         lower_bounds = None
@@ -74,6 +78,54 @@ def _map(
 ):
     """Apply a function to all partitions.
 
+    Args:
+      func (callable): The function to apply. It should return a
+        ``polars.DataFrame`` or ``polars.LazyFrame`` and support the following
+        signature::
+
+          func(part,
+               extra_arg_1, extra_arg_2, ...,
+               shared_arg_1, shared_arg_2, ...)
+
+        where `part` is a ``polars.LazyFrame`` with the partition data,
+        `extra_arg_1` etc. are partition-specific arguments specified via
+        `extra_args` (see below) and `shared_arg_1` etc are shared arguments
+        specified via `shared_args` (see below).
+      extra_args (list of tuples, optional): Extra partition-specific arguments
+        passed to func. The length of the list must equal the number of
+        partitions and each tuple in the list is unpacked and then passed
+        as additional arguments to the function call for the corresponding
+        partition. Defaults to ``None``, in which case no extra arguments are
+        passed.
+      shared_args (tuple, optional): This tuple is unpacked and passed as
+        extra arguments to *every* call of `func`. Defaults to ``None``, in
+        which case no shared arguments are passed.
+      index_columns (tuple of str, optional): The new index columns to use
+        after `func` is applied. (Note that `func` may change the schema of the
+        dataset, so the old index columns might not exist anymore after `func`
+        is applied.) Defaults to ``None``, in which case the old index columns
+        are used.
+      preserves (str, optional): Specifies which part of the metadata is
+        preserved by `func`. Possible values are:
+
+          ``'none'``
+            No metadata is preserved.
+          ``'sizes'``
+            Partition sizes (number of rows) are preserved.
+          ``'bounds'``
+            Partition bounds (``self.lower_bounds`` and
+            ``self.upper_bounds``) are preserved.
+          ``'all'``
+            Both partition sizes and bounds are preserved.
+
+        Defaults to ``'none'``.
+        
+        Note that the behaviour of `func` is not checked. If you specify
+        ``preserves='bounds'`` but your `func` actually changes the bounds
+        this will lead to incorrect behaviour downstream.
+
+    Returns:
+      padawan.Dataset: A dataset with `func` applied to each partition.
     """
     return MappedDataset(
         self,

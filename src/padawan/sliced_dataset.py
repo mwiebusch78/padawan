@@ -92,6 +92,20 @@ class SlicedDataset(Dataset):
 
 
 def _slice(self, lb=None, ub=None):
+    """Take a slice of the dataset using the current index columns.
+
+    Args:
+      lb (tuple, optional): A tuple with the same length as
+        ``self.index_columns`` specifying the (inclusive) lower bound of the
+        slice. Defaults to ``None``, in which case there is no lower bound.
+      ub (tuple, optional): A tuple with the same length as
+        ``self.index_columns`` specifying the (exclusive) upper bound of the
+        slice. Defaults to ``None``, in which case there is no upper bound.
+
+    Returns:
+      padawan.Dataset: The slice of the dataset.
+
+    """
     return SlicedDataset(self, lb=lb, ub=ub)
 
 Dataset.slice = _slice

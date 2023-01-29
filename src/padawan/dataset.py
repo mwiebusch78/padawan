@@ -221,7 +221,7 @@ class Dataset:
             partition_index (int): The index of the partition.
 
         Returns:
-          part (polars.LazyFrame): The partition data.
+          polars.LazyFrame: The partition data.
         """
         raise NotImplementedError
 
@@ -250,12 +250,18 @@ class Dataset:
             ``self.index_columns`` is used.
 
         Returns:
-          part (polars.LazyFrame): The partition data.
-          nrows (int): The number of rows in the partition.
-          lb (tuple): The lower bound of the partiton.
-            (One element for each index column.)
-          ub (tuple): The upper bound of the partition.
-            (One element for each index column.)
+          tuple: A tuple with the following components:
+
+            `part` (polars.LazyFrame)
+              The partition data.
+            `nrows` (int)
+              The number of rows in the partition.
+            `lb` (tuple)
+              The lower bound of the partiton.
+              (One element for each index column.)
+            `ub` (tuple)
+              The upper bound of the partition.
+              (One element for each index column.)
         """
         if index_columns is None:
             index_columns = self._index_columns
@@ -314,6 +320,10 @@ class Dataset:
               ``parallel = -n < 0``
                 use number of available CPUs minus n
 
+        Returns:
+          padawan.Dataset: The dataset that was written, as if it
+            was read back in with :py:func:`padawan.scan_parquet`.
+
         """
         try:
             shutil.rmtree(path)
@@ -357,7 +367,8 @@ class Dataset:
         """Pull all data into memory.
 
         Args:
-          parallel (bool or int): Specifies how to parallelize the computation:
+          parallel (bool or int, optional): Specifies how to parallelize the
+            computation:
 
               ``parallel = True``
                 use all available CPUs
@@ -370,8 +381,10 @@ class Dataset:
               ``parallel = -n < 0``
                 use number of available CPUs minus n
 
+            Defaults to ``False``.
+
         Returns:
-          data (polars.DataFrame): A single dataframe with all partitions
+          polars.DataFrame: A single dataframe with all partitions
             concatenated.
         """
         if self._npartitions == 0:

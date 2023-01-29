@@ -55,6 +55,21 @@ class JoinedDataset(Dataset):
 
 
 def _join(self, other, how='inner'):
+    """Join with another dataset.
+
+    Args:
+      other (padawan.Dataset): The dataset to join. `self` and `other` must
+        have the same index columns and the join is done on those columns.
+        You can use :py:meth:`padawan.Dataset.reindex` and
+        :py:meth:`padawan.Dataset.rename` to give both datasets index columns
+        with the same name.
+      how (str, optional): The type of join to perform. Supported values are
+        ``'inner'``, ``'left'`` and ``'outer'``. Defaults to ``'inner'``.
+
+    Returns:
+      padawan.Dataset: The joined dataset.
+
+    """
     return JoinedDataset(self, other, how=how)
 Dataset.join = _join
 

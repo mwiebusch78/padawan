@@ -10,7 +10,7 @@ class CollatedDataset(Dataset):
             raise ValueError('other must be a Dataset object')
         if not other.known_sizes and other.known_bounds:
             raise ValueError(
-                'Stats must be known to use collate. Use collect_stats first.')
+                'Stats must be known to use collate. Use reindex first.')
         self._other = other
 
         other_lower_bounds = self._other.lower_bounds
@@ -76,5 +76,22 @@ class CollatedDataset(Dataset):
 
 
 def _collate(self, rows_per_partition):
+    """Merge partitions to get a certain minimum number of rows per partition.
+
+    The partition sizes and bounds must be known to use this method. You can
+    call :py:meth:`padawan.Dataset.reindex` first to compute them.
+
+    This method does not split existing partitions. Use
+    :py:meth:`padawan.Dataset.repartition` for better (but computationally
+    more expensive) control over partition sizes.
+
+    Args:
+      rows_per_partition (int): The desired minimum number of rows per
+        partition.
+
+    Returns:
+      padawan.Dataset: A dataset with the desired minimum number of
+        rows per partition.
+    """
     return CollatedDataset(self, rows_per_partition)
 Dataset.collate = _collate
