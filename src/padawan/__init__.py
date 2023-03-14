@@ -1,4 +1,4 @@
-__version__ = '0.1.1'
+__version__ = '0.2'
 
 __all__ = [
     'scan_parquet',
@@ -14,6 +14,7 @@ from . import renamed_dataset
 from . import persisted_dataset
 from . import collated_dataset
 from . import sliced_dataset
+from . import repartitioned_dataset
 from . import joined_dataset
 
 from .persisted_dataset import scan_parquet

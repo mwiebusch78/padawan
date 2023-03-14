@@ -204,6 +204,40 @@ def _repartition(
         base_seed=10,
         seed_increment=10,
 ):
+    """Repartition the dataset.
+
+    The data is partitioned so that rows with the same values for
+    the index columns appear in the same partition.
+
+    Args:
+      rows_per_partition (int): The desired number of rows per partition.
+      sample_fraction (float, optional): The fraction of rows of the full
+        dataset that will be sampled in order to determine the new partition
+        boundaries. Defaults to 1, in which case all rows are processed.
+        You need to reduce this in cases where the index columns for the full
+        dataset cannot be stored in memory.
+      parallel (bool or int): Specifies how to parallelize the computation
+        that determines the new partition boundaries:
+
+          ``parallel = True``
+            use all available CPUs
+          ``parallel = False``
+            no parallelism
+          ``parallel > 1``
+            use ``parallel`` number of CPUs
+          ``parallel in [0, 1]``
+            no parallelism
+          ``parallel = -n < 0``
+            use number of available CPUs minus n
+      base_seed (int, optional): The random seed used to sample rows from
+        the first partition of `self`. Defaults to 10.
+      seed_increment (int, optional): For every subsequent partition the
+        random seed in incremented by `seed_increment`. Defaults to 10.
+
+    Returns:
+      padawan.Dataset: The repartitioned dataset.
+
+    """
     return RepartitionedDataset(
         self,
         rows_per_partition,
