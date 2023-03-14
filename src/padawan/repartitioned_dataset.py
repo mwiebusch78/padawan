@@ -91,12 +91,14 @@ def get_index_divisions(
     sizes = []
     current_size = 0
     while len(sample) > 0:
-        head = sample.filter(pl.col('__size') < current_size + samples_per_partition)
+        head = sample.filter(
+            pl.col('__size') <= current_size + samples_per_partition)
         if len(head) == 0:
             head = sample[:1, :]
             sample = sample[1:, :]
         else:
-            sample = sample.filter(pl.col('__size') >= current_size + samples_per_partition)
+            sample = sample.filter(
+                pl.col('__size') > current_size + samples_per_partition)
         lower_bounds.append(head.row(0)[:-1])
         upper_bounds.append(head.row(-1)[:-1])
         sizes.append(head[-1, '__size'] - current_size)
