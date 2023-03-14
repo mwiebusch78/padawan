@@ -82,40 +82,29 @@ def get_index_divisions(
         .groupby(index_columns)
         .agg(pl.col('__size').sum())
         .sort(index_columns)
-        .with_column(
-            (pl.col('__size').cumsum()/samples_per_partition)
-            .ceil().cast(pl.Int32)
-            .alias('__part')
-        )
+        .with_columns(pl.col('__size').cumsum())
         .collect()
     )
-    lower_bounds = list(
-        sample
-        .groupby('__part')
-        .first()
-        .sort('__part')
-        .select(index_columns)
-        .rows()
-    )
+
+    lower_bounds = []
+    upper_bounds = []
+    sizes = []
+    current_size = 0
+    while len(sample) > 0:
+        head = sample.filter(pl.col('__size') < current_size + samples_per_partition)
+        if len(head) == 0:
+            head = sample[:1, :]
+            sample = sample[1:, :]
+        else:
+            sample = sample.filter(pl.col('__size') >= current_size + samples_per_partition)
+        lower_bounds.append(head.row(0)[:-1])
+        upper_bounds.append(head.row(-1)[:-1])
+        sizes.append(head[-1, '__size'] - current_size)
+        current_size = head[-1, '__size']
+
     divisions = lower_bounds[1:]
 
-    if samples_per_partition == rows_per_partition:
-        upper_bounds = list(
-            sample
-            .groupby('__part')
-            .last()
-            .sort('__part')
-            .select(index_columns)
-            .rows()
-        )
-        sizes = list(
-            sample
-            .groupby('__part')
-            .agg(pl.col('__size').sum())
-            .sort('__part')
-            .get_column('__size')
-        )
-    else:
+    if samples_per_partition != rows_per_partition:
         lower_bounds = None
         upper_bounds = None
         sizes = None
