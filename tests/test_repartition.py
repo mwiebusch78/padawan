@@ -64,6 +64,7 @@ def test__get_index_divisions(datetime_sample):
     base_seed = 10
     seed_increment = 10
     parallel = False
+    progress = False
 
     divisions, sizes, lower_bounds, upper_bounds = get_index_divisions(
         ds,
@@ -73,6 +74,7 @@ def test__get_index_divisions(datetime_sample):
         base_seed,
         seed_increment,
         parallel,
+        progress,
     )
     expected_divisions = [(timedelta(hours=h),) for h in range(5, 24, 6)]
     expected_sizes = [22, 24, 24, 24, 4]

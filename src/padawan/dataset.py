@@ -409,24 +409,17 @@ class Dataset:
 
         return self._read_persisted(path)
 
-    def collect(self, parallel=False):
+    def collect(self, parallel=False, progress=False):
         """Pull all data into memory.
 
         Args:
           parallel (bool or int, optional): Specifies how to parallelize the
-            computation:
-
-              ``parallel = True``
-                use all available CPUs
-              ``parallel = False``
-                no parallelism
-              ``parallel > 1``
-                use ``parallel`` number of CPUs
-              ``parallel in [0, 1]``
-                no parallelism
-              ``parallel = -n < 0``
-                use number of available CPUs minus n
-
+            computation. See corresponding argument for
+            :py:meth:`padawan.Dataset.write_parquet` for details.
+            Defaults to ``False``.
+          progress (callable, str, int, bool or tuple, optional):
+            Whether and how to print progress messages. See corresponding
+            argument for :py:meth:`padawan.Dataset.write_parquet` for details.
             Defaults to ``False``.
 
         Returns:
@@ -442,6 +435,7 @@ class Dataset:
                 self._get_greedy,
                 partition_indices,
                 workers=parallel,
+                progress=progress,
             )
             return pl.concat(parts)
         else:

@@ -63,6 +63,7 @@ def get_index_divisions(
         base_seed,
         seed_increment,
         parallel,
+        progress,
 ):
     sample_fraction = min(sample_fraction, 1.0)
     samples_per_partition = max(1, int(sample_fraction*rows_per_partition))
@@ -77,7 +78,7 @@ def get_index_divisions(
             extra_args=extra_args,
             shared_args=shared_args,
         )
-        .collect(parallel=parallel)
+        .collect(parallel=parallel, progress=progress)
         .lazy()
         .groupby(index_columns)
         .agg(pl.col('__size').sum())
@@ -121,6 +122,7 @@ class RepartitionedDataset(Dataset):
             rows_per_partition,
             sample_fraction=1.0,
             parallel=False,
+            progress=False,
             base_seed=10,
             seed_increment=10,
     ):
@@ -146,6 +148,7 @@ class RepartitionedDataset(Dataset):
                     base_seed=base_seed,
                     seed_increment=seed_increment,
                     parallel=parallel,
+                    progress=progress,
                 )
 
         super().__init__(
@@ -192,6 +195,7 @@ def _repartition(
         rows_per_partition,
         sample_fraction=1.0,
         parallel=False,
+        progress=False,
         base_seed=10,
         seed_increment=10,
 ):
@@ -207,19 +211,14 @@ def _repartition(
         boundaries. Defaults to 1, in which case all rows are processed.
         You need to reduce this in cases where the index columns for the full
         dataset cannot be stored in memory.
-      parallel (bool or int): Specifies how to parallelize the computation
-        that determines the new partition boundaries:
-
-          ``parallel = True``
-            use all available CPUs
-          ``parallel = False``
-            no parallelism
-          ``parallel > 1``
-            use ``parallel`` number of CPUs
-          ``parallel in [0, 1]``
-            no parallelism
-          ``parallel = -n < 0``
-            use number of available CPUs minus n
+      parallel (bool or int, optional): Specifies how to parallelize the
+        computation. See corresponding argument for
+        :py:meth:`padawan.Dataset.write_parquet` for details.
+        Defaults to ``False``.
+      progress (callable, str, int, bool or tuple, optional):
+        Whether and how to print progress messages. See corresponding
+        argument for :py:meth:`padawan.Dataset.write_parquet` for details.
+        Defaults to ``False``.
       base_seed (int, optional): The random seed used to sample rows from
         the first partition of `self`. Defaults to 10.
       seed_increment (int, optional): For every subsequent partition the
@@ -234,6 +233,7 @@ def _repartition(
         rows_per_partition,
         sample_fraction=sample_fraction,
         parallel=parallel,
+        progress=progress,
         base_seed=base_seed,
         seed_increment=seed_increment,
     )

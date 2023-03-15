@@ -19,6 +19,7 @@ class ReindexedDataset(Dataset):
             index_columns=None,
             collect_stats=True,
             parallel=False,
+            progress=False,
     ):
         if not isinstance(other, Dataset):
             raise ValueError('other must be a Dataset object')
@@ -48,6 +49,7 @@ class ReindexedDataset(Dataset):
                 partition_indices,
                 shared_args={'index_columns': index_columns},
                 workers=parallel,
+                progress=progress,
             )
             sizes = [s[0] for s in stats]
             lower_bounds = [s[1] for s in stats]
@@ -90,7 +92,13 @@ class ReindexedDataset(Dataset):
         return self._other[self._partition_indices[partition_index]]
 
 
-def _reindex(self, index_columns=None, collect_stats=True, parallel=False):
+def _reindex(
+        self,
+        index_columns=None,
+        collect_stats=True,
+        parallel=False,
+        progress=False,
+):
     """Set index columns and compute partition sizes and bounds.
 
     Args:
@@ -107,19 +115,12 @@ def _reindex(self, index_columns=None, collect_stats=True, parallel=False):
         index bounds of the partitions if they are not known. Defaults to
         ``True``.
       parallel (bool or int, optional): Specifies how to parallelize the
-        computation:
-
-          ``parallel = True``
-            use all available CPUs
-          ``parallel = False``
-            no parallelism
-          ``parallel > 1``
-            use ``parallel`` number of CPUs
-          ``parallel in [0, 1]``
-            no parallelism
-          ``parallel = -n < 0``
-            use number of available CPUs minus n
-
+        computation. See corresponding argument for
+        :py:meth:`padawan.Dataset.write_parquet` for details.
+        Defaults to ``False``.
+      progress (callable, str, int, bool or tuple, optional):
+        Whether and how to print progress messages. See corresponding
+        argument for :py:meth:`padawan.Dataset.write_parquet` for details.
         Defaults to ``False``.
 
     Returns:
@@ -134,6 +135,7 @@ def _reindex(self, index_columns=None, collect_stats=True, parallel=False):
         index_columns=index_columns,
         collect_stats=collect_stats,
         parallel=parallel,
+        progress=progress,
     )
 
 Dataset.reindex = _reindex
