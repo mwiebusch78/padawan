@@ -300,7 +300,7 @@ class Dataset:
         part.write_parquet(os.path.join(path, filename))
         return filename, nrows, lb, ub, schema
 
-    def write_parquet(self, path, parallel=False):
+    def write_parquet(self, path, parallel=False, progress=False):
         """Write the dataset to disk.
 
         Args:
@@ -319,6 +319,51 @@ class Dataset:
                 no parallelism
               ``parallel = -n < 0``
                 use number of available CPUs minus n
+          progress (callable, str, int, bool or tuple, optional):
+            Whether to print and how to print progress messages about the
+            computation. The possible values are:
+
+              ``False``
+                No progress messages are printed.
+              ``True``
+                A default progress message is printed after each completed
+                partition.
+              format string
+                A custom message is printed after each completed partition.
+                The following format variables can be used:
+
+                  `completed` (int)
+                    The number of completed partitions.
+                  `total` (int)
+                    The total number of partitions.
+                  `remaining` (int)
+                    The remaining number of partitions.
+                  `start` (str)
+                    The starting time of the computation in ISO format.
+                  `finish` (str)
+                    The expected finishing time of the computation in ISO format.
+                  `telapsed` (str)
+                    The elapsed time of the computations.
+                  `tremaining` (str)
+                    The expected time to finish.
+                  `ttotal` (str)
+                    The expected total time of the computation.
+              integer `n`
+                Print the default message only after every `n` completed partitions.
+              tuple of the form ``(msg, n)``
+                Print a custom message after every `n` completed partitions.
+              callable
+                Call a custom function after every completed partition. The function
+                must accept the following arguments:
+
+                  `completed` (int)
+                    The number of completed partitions.
+                  `total` (int)
+                    The total number of partitions.
+                  `start` (datetime.datetime)
+                    The starting time of the computation.
+                  `finish` (datetime.datetime)
+                    The expected finishing time of the computation.
 
         Returns:
           padawan.Dataset: The dataset that was written, as if it
@@ -339,6 +384,7 @@ class Dataset:
             partition_indices,
             workers=parallel,
             shared_args={'path': path},
+            progress=progress,
         )
 
         files = [m[0] for m in meta if m[1] > 0]
