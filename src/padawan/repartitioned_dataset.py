@@ -167,7 +167,7 @@ class RepartitionedDataset(Dataset):
         if self.index_columns:
             return (
                 self._other
-                .slice(lb, ub)
+                .slice(lb, ub, inclusive='lower')
                 .collect()
                 .lazy()
             )

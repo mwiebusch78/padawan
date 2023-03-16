@@ -48,8 +48,8 @@ class JoinedDataset(Dataset):
         lb = self._divisions[partition_index]
         ub = self._divisions[partition_index + 1]
 
-        left_slice = self._left.slice(lb, ub).collect()
-        right_slice = self._right.slice(lb, ub).collect()
+        left_slice = self._left.slice(lb, ub, inclusive='lower').collect()
+        right_slice = self._right.slice(lb, ub, inclusive='lower').collect()
         return left_slice.join(
             right_slice, on=self._index_columns, how=self._how).lazy()
 

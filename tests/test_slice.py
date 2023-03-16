@@ -130,3 +130,87 @@ def test__slice__flipped_bounds(datetime_sample):
 
     data = ds.collect()
     assert len(data) == 0
+
+
+def test__slice__irrelevant_bounds(datetime_sample):
+    lb = (None, timedelta(hours=-10))
+    ub = (date(2022, 1, 6), timedelta(hours=10))
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub)
+    )
+
+    assert ds.lower_bounds == \
+        tuple(b[:2] for b in datetime_sample['lower_bounds'])
+    assert ds.upper_bounds == \
+        tuple(b[:2] for b in datetime_sample['upper_bounds'])
+    assert ds.sizes == datetime_sample['sizes']
+
+
+def test__slice__inclusive_none(datetime_sample):
+    lb = (date(2022, 1, 2), timedelta(hours=23))
+    ub = (date(2022, 1, 4), timedelta(hours=0))
+
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub, inclusive='none')
+    )
+
+    assert len(ds) == 1
+
+    ds = ds.collect().select(['date', 'hour']).sort(['date', 'hour'])
+    assert(ds.row(0) > lb)
+    assert(ds.row(-1) < ub)
+
+
+def test__slice__inclusive_lower(datetime_sample):
+    lb = (date(2022, 1, 2), timedelta(hours=23))
+    ub = (date(2022, 1, 4), timedelta(hours=0))
+
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub, inclusive='lower')
+    )
+
+    assert len(ds) == 2
+
+    ds = ds.collect().select(['date', 'hour']).sort(['date', 'hour'])
+    assert(ds.select(['date', 'hour']).row(0) == lb)
+    assert(ds.select(['date', 'hour']).row(-1) < ub)
+
+
+def test__slice__inclusive_upper(datetime_sample):
+    lb = (date(2022, 1, 2), timedelta(hours=23))
+    ub = (date(2022, 1, 4), timedelta(hours=0))
+
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub, inclusive='upper')
+    )
+
+    assert len(ds) == 2
+
+    ds = ds.collect().select(['date', 'hour']).sort(['date', 'hour'])
+    assert(ds.select(['date', 'hour']).row(0) > lb)
+    assert(ds.select(['date', 'hour']).row(-1) == ub)
+
+
+def test__slice__inclusive_both(datetime_sample):
+    lb = (date(2022, 1, 2), timedelta(hours=23))
+    ub = (date(2022, 1, 4), timedelta(hours=0))
+
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub, inclusive='both')
+    )
+
+    assert len(ds) == 3
+
+    ds = ds.collect().select(['date', 'hour']).sort(['date', 'hour'])
+    assert(ds.select(['date', 'hour']).row(0) == lb)
+    assert(ds.select(['date', 'hour']).row(-1) == ub)
