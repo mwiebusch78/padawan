@@ -4,11 +4,8 @@ import polars as pl
 
 from .parallelize import parallel_map, is_parallel_config
 from .json_io import write_json
-
-
-PARTITION_NUMBER_DIGITS = 10
-METADATA_FILE = '_padawan_metadata.json'
-SCHEMA_FILE = '_padawan_schema'
+from .metadata import (
+    load_metadata, PARTITION_NUMBER_DIGITS, METADATA_FILE, SCHEMA_FILE)
 
 
 def lex_min(df):
@@ -39,6 +36,10 @@ def dataframe_from_schema(schema):
 
 
 class StatsUnknownError(Exception):
+    pass
+
+
+class AppendError(Exception):
     pass
 
 
@@ -279,9 +280,9 @@ class Dataset:
             ub = ()
         return part, nrows, lb, ub
 
-    def _write_partition(self, partition_index, path):
+    def _write_partition(self, partition_index, path, offset):
         fmt = f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'
-        filename = fmt.format(partition_index)
+        filename = fmt.format(partition_index + offset)
         if self.known_sizes and self.known_bounds:
             nrows = self._sizes[partition_index]
             lb = self._lower_bounds[partition_index]
@@ -300,13 +301,24 @@ class Dataset:
         part.write_parquet(os.path.join(path, filename))
         return filename, nrows, lb, ub, schema
 
-    def write_parquet(self, path, parallel=False, progress=False):
+    def write_parquet(
+            self,
+            path,
+            append=False,
+            parallel=False,
+            progress=False,
+    ):
         """Write the dataset to disk.
 
         Args:
           path (str): The directory that will contain the parquet files.
-            If a file or directory with that name exists it will be deleted
-            first.
+            If a file or directory with that name exists (and `append` is
+            ``False``) it will be deleted first.
+          append (bool, optional): If ``True`` the partitions are appended to
+            an existing dataset in `path`. In this case you must make sure that
+            `path` is an existing directory containing valid padawan metadata
+            files (e.g. by writing to the same path with
+            ``write_parquet(path, append=False)`` first).
           parallel (bool or int): Specifies how to parallelize the computation:
 
               ``parallel = True``
@@ -341,7 +353,8 @@ class Dataset:
                   `start` (str)
                     The starting time of the computation in ISO format.
                   `finish` (str)
-                    The expected finishing time of the computation in ISO format.
+                    The expected finishing time of the computation in ISO 
+                    format.
                   `telapsed` (str)
                     The elapsed time of the computations.
                   `tremaining` (str)
@@ -349,12 +362,13 @@ class Dataset:
                   `ttotal` (str)
                     The expected total time of the computation.
               integer `n`
-                Print the default message only after every `n` completed partitions.
+                Print the default message only after every `n` completed
+                partitions.
               tuple of the form ``(msg, n)``
                 Print a custom message after every `n` completed partitions.
               callable
-                Call a custom function after every completed partition. The function
-                must accept the following arguments:
+                Call a custom function after every completed partition. The
+                function must accept the following arguments:
 
                   `completed` (int)
                     The number of completed partitions.
@@ -366,35 +380,63 @@ class Dataset:
                     The expected finishing time of the computation.
 
         Returns:
-          padawan.Dataset: The dataset that was written, as if it
-            was read back in with :py:func:`padawan.scan_parquet`.
+          padawan.Dataset or None: ``None`` if ``append=False``. Otherwise the
+            dataset that was written is returned, as if it was read back in
+            with :py:func:`padawan.scan_parquet`.
 
         """
-        try:
-            shutil.rmtree(path)
-        except NotADirectoryError:
-            os.remove(path)
-        except FileNotFoundError:
-            pass
-        os.mkdir(path)
+        if not append:
+            try:
+                shutil.rmtree(path)
+            except NotADirectoryError:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            os.mkdir(path)
+            files = []
+            sizes = []
+            lower_bounds = []
+            upper_bounds = []
+            max_partition_index = -1
+            schema = None
+        else:
+            try:
+                (
+                    files,
+                    index_columns,
+                    sizes,
+                    lower_bounds,
+                    upper_bounds,
+                    max_partition_index,
+                    schema,
+                ) = load_metadata(path)
+            except FileNotFoundError:
+                raise AppendError(
+                    f'Could not load metadata in {repr(path)}.')
+            if index_columns != self.index_columns:
+                raise AppendError(
+                    f'Cannot append dataset with index columns {index_columns}'
+                    f' to dataset with index columns {self.index_columns}.')
 
         partition_indices = list(range(self._npartitions))
         meta = parallel_map(
             self._write_partition,
             partition_indices,
             workers=parallel,
-            shared_args={'path': path},
+            shared_args={'path': path, 'offset': max_partition_index + 1},
             progress=progress,
         )
+        max_partition_index += self._npartitions
 
-        files = [m[0] for m in meta if m[1] > 0]
-        sizes = [m[1] for m in meta if m[1] > 0]
-        lower_bounds = [m[2] for m in meta if m[1] > 0]
-        upper_bounds = [m[3] for m in meta if m[1] > 0]
-        if meta:
-            schema = meta[0][4]
-        else:
-            schema = self._schema
+        files += [m[0] for m in meta if m[1] > 0]
+        sizes += [m[1] for m in meta if m[1] > 0]
+        lower_bounds += [m[2] for m in meta if m[1] > 0]
+        upper_bounds += [m[3] for m in meta if m[1] > 0]
+        if schema is None:
+            if meta:
+                schema = meta[0][4]
+            else:
+                schema = self._schema
 
         meta = {
             'index_columns': self._index_columns,
@@ -402,11 +444,14 @@ class Dataset:
             'sizes': sizes,
             'lower_bounds': lower_bounds,
             'upper_bounds': upper_bounds,
+            'max_partition_index': max_partition_index,
         }
         write_json(meta, os.path.join(path, METADATA_FILE))
         dataframe_from_schema(schema).write_parquet(
             os.path.join(path, SCHEMA_FILE))
 
+        if append:
+            return None
         return self._read_persisted(path)
 
     def collect(self, parallel=False, progress=False):
