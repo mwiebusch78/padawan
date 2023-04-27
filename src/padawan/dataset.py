@@ -475,14 +475,10 @@ class Dataset:
             return dataframe_from_schema(self._schema)
 
         partition_indices = list(range(self._npartitions))
-        if is_parallel_config(parallel):
-            parts = parallel_map(
-                self._get_greedy,
-                partition_indices,
-                workers=parallel,
-                progress=progress,
-            )
-            return pl.concat(parts)
-        else:
-            parts = [self[i] for i in partition_indices]
-            return pl.concat(parts).collect()
+        parts = parallel_map(
+            self._get_greedy,
+            partition_indices,
+            workers=parallel,
+            progress=progress,
+        )
+        return pl.concat(parts)
