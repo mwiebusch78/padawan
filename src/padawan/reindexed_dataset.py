@@ -102,7 +102,7 @@ def _reindex(
     """Set index columns and compute partition sizes and bounds.
 
     Args:
-      index_columns (tuple of str, optional): The columns to used as index.
+      index_columns (tuple of str, optional): The columns to use as index.
         Defaults to ``None``, in which case partition sizes and bounds are
         computed for the current index columns.
 

@@ -13,7 +13,7 @@ def test__map__preserves_none(datetime_sample):
     ds = (
         padawan.scan_parquet(datetime_sample['path'])
         .reindex(['date', 'hour', 't'])
-        .map(lambda df: df.with_column((2*pl.col('a')).alias('b')))
+        .map(lambda df: df.with_columns((2*pl.col('a')).alias('b')))
     )
     assert ds.known_sizes is False
     assert ds.known_bounds is False
@@ -29,7 +29,7 @@ def test__map__preserves_bounds(datetime_sample):
         padawan.scan_parquet(datetime_sample['path'])
         .reindex(['date', 'hour', 't'])
         .map(
-            lambda df: df.with_column((2*pl.col('a')).alias('b')),
+            lambda df: df.with_columns((2*pl.col('a')).alias('b')),
             preserves='bounds',
         )
     )
@@ -49,7 +49,7 @@ def test__map__preserves_sizes(datetime_sample):
         padawan.scan_parquet(datetime_sample['path'])
         .reindex(['date', 'hour', 't'])
         .map(
-            lambda df: df.with_column((2*pl.col('a')).alias('b')),
+            lambda df: df.with_columns((2*pl.col('a')).alias('b')),
             preserves='sizes',
         )
     )
@@ -68,7 +68,7 @@ def test__map__preserves_all(datetime_sample):
         padawan.scan_parquet(datetime_sample['path'])
         .reindex(['date', 'hour', 't'])
         .map(
-            lambda df: df.with_column((2*pl.col('a')).alias('b')),
+            lambda df: df.with_columns((2*pl.col('a')).alias('b')),
             preserves='all',
         )
     )
@@ -86,7 +86,7 @@ def test__map__preserves_all(datetime_sample):
 
 def test__map__sequential_with_args(datetime_sample):
     def f(df, alpha, beta):
-        return df.with_column((alpha*pl.col('a') + beta).alias('b'))
+        return df.with_columns((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
         padawan.scan_parquet(datetime_sample['path'])
@@ -111,7 +111,7 @@ def test__map__sequential_with_args(datetime_sample):
 
 def test__map__parallel_with_args(datetime_sample):
     def f(df, alpha, beta):
-        return df.with_column((alpha*pl.col('a') + beta).alias('b'))
+        return df.with_columns((alpha*pl.col('a') + beta).alias('b'))
 
     ds = (
         padawan.scan_parquet(datetime_sample['path'])
