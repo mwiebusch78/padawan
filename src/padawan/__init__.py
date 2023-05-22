@@ -1,7 +1,9 @@
-__version__ = '0.6'
+__version__ = '0.7'
 
 __all__ = [
     'scan_parquet',
+    'from_polars',
+    'concat',
 ]
 
 from . import dataset
@@ -20,4 +22,4 @@ from . import joined_dataset
 from .persisted_dataset import scan_parquet
 from .in_memory_dataset import from_polars
 from .dataset import Dataset
-
+from .concatenated_dataset import concat
