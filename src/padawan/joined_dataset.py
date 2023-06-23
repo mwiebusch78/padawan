@@ -33,13 +33,24 @@ class JoinedDataset(Dataset):
         divisions = left.lower_bounds + right.lower_bounds
         divisions = sorted(set(divisions), key=lex_key)
 
+        schema = None
+        if left.known_schema and right.known_schema:
+            index_columns = left.index_columns
+            schema = left.schema
+            for c, t in right.schema.items():
+                if c in index_columns:
+                    continue
+                if c in schema:
+                    raise ValueError(f'Duplicate column {repr(c)} in join.')
+                schema[c] = t
+
         super().__init__(
             npartitions=len(divisions) + 1,
             index_columns=left.index_columns,
             sizes=None,
             lower_bounds=None,
             upper_bounds=None,
-            schema=None,
+            schema=schema,
         )
         self._divisions = [None] + divisions + [None]
         self._how = how

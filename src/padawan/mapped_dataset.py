@@ -11,6 +11,7 @@ class MappedDataset(Dataset):
             extra_args=None,
             shared_args=None,
             index_columns=None,
+            schema=None,
             preserves='none',
     ):
         if not isinstance(other, Dataset):
@@ -54,7 +55,7 @@ class MappedDataset(Dataset):
             sizes=sizes,
             lower_bounds=lower_bounds,
             upper_bounds=upper_bounds,
-            schema=None,
+            schema=schema,
         )
 
     def _get_partition(self, partition_index):
@@ -74,6 +75,7 @@ def _map(
         extra_args=None,
         shared_args=None,
         index_columns=None,
+        schema=None,
         preserves='none',
 ):
     """Apply a function to all partitions.
@@ -105,6 +107,8 @@ def _map(
         dataset, so the old index columns might not exist anymore after `func`
         is applied.) Defaults to ``None``, in which case the old index columns
         are used.
+      schema (dict, optional): The schema of the dataset after the map. Defaults
+        to ``None``, in which case the schema will be unknown.
       preserves (str, optional): Specifies which part of the metadata is
         preserved by `func`. Possible values are:
 
@@ -133,6 +137,7 @@ def _map(
         extra_args=extra_args,
         shared_args=shared_args,
         index_columns=index_columns,
+        schema=schema,
         preserves=preserves,
     )
 Dataset.map = _map
