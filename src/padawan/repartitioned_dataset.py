@@ -46,7 +46,9 @@ def get_row_divisions(partition_sizes, rows_per_partition):
 def _sample_partition(part, seed, index_columns, frac):
     sample = part.select(index_columns)
     if frac < 1.0:
-        sample = sample.collect().sample(frac=frac, seed=seed).lazy()
+        sample = sample.collect()
+        nrows = max(int(frac*len(sample)), 1)
+        sample = sample.sample(nrows, seed=seed).lazy()
     sample = (
         sample
         .groupby(index_columns)
