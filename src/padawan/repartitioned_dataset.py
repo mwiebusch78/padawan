@@ -4,43 +4,47 @@ from .dataset import Dataset
 
 
 def get_row_divisions(partition_sizes, rows_per_partition):
-        partition_indices = []
-        row_indices = []
-        src_partition = 0
-        src_row_index = 0
-        dest_row_index = 0
-        num_src_partitions = len(partition_sizes)
-        while (src_partition, src_row_index) < (num_src_partitions, 0):
-            rem_src_rows = partition_sizes[src_partition] - src_row_index
-            rem_dest_rows = rows_per_partition - dest_row_index
-            if rem_src_rows < rem_dest_rows:
-                # add remainder of source partition
-                dest_row_index += rem_src_rows
-                src_partition += 1
-                src_row_index = 0
-            elif rem_src_rows == rem_dest_rows:
-                # add remainder of source partition and create split
-                dest_row_index += rem_src_rows
-                src_partition += 1
-                src_row_index = 0
-                dest_row_index = 0
-                if src_partition < num_src_partitions:
-                    partition_indices.append(src_partition)
-                    row_indices.append(src_row_index)
-            else:
-                # add part of source partition and create split
-                src_row_index += rem_dest_rows
-                dest_row_index = 0
-                if src_partition < num_src_partitions:
-                    partition_indices.append(src_partition)
-                    row_indices.append(src_row_index)
+    num_rows = sum(partition_sizes)
+    df_old = (
+        pl.DataFrame(pl.Series('row', [0] + list(partition_sizes)[:-1], pl.UInt32))
+        .with_row_count('part_index')
+        .with_columns(
+            row=pl.col('row').cum_sum(),
+            is_new_div=pl.lit(False, pl.Boolean),
+        )
+        .select(
+            'row',
+            'part_index',
+            pl.col('row').alias('part_base'),
+            'is_new_div',
+        )
+    )
+    df_new = (
+        pl.DataFrame(pl.int_range(0, num_rows, rows_per_partition, dtype=pl.UInt32, eager=True).alias('row'))
+        .with_columns(
+            part_index=pl.lit(None, pl.UInt32),
+            part_base=pl.lit(None, pl.UInt32),
+            is_new_div=pl.lit(True, pl.Boolean),
+        )
+    )
+    divisions = list(
+        pl.concat([df_old, df_new])
+        .sort('row', 'is_new_div')
+        .with_columns(
+            part_index=pl.col('part_index').fill_null(strategy='forward'),
+            part_base=pl.col('part_base').fill_null(strategy='forward'),
+        )
+        .with_columns(offset=pl.col('row') - pl.col('part_base'))
+        .filter(pl.col('is_new_div') & (pl.col('row') > 0))
+        .select('part_index', 'offset')
+        .rows()
+    )
 
-        divisions = list(zip(partition_indices, row_indices))
-        sizes = [rows_per_partition]*len(divisions) + \
-            [sum(partition_sizes)-rows_per_partition*len(divisions)]
-        lower_bounds = [()]*len(sizes)
-        upper_bounds = [()]*len(sizes)
-        return divisions, sizes, lower_bounds, upper_bounds
+    sizes = [rows_per_partition]*len(divisions) + \
+        [sum(partition_sizes)-rows_per_partition*len(divisions)]
+    lower_bounds = [()]*len(sizes)
+    upper_bounds = [()]*len(sizes)
+    return divisions, sizes, lower_bounds, upper_bounds
 
 
 def _sample_partition(part, seed, index_columns, frac):
@@ -51,7 +55,7 @@ def _sample_partition(part, seed, index_columns, frac):
         sample = sample.sample(nrows, seed=seed).lazy()
     sample = (
         sample
-        .groupby(index_columns)
+        .group_by(index_columns)
         .agg(pl.count().alias('__size'))
     )
     return sample
@@ -82,34 +86,39 @@ def get_index_divisions(
         )
         .collect(parallel=parallel, progress=progress)
         .lazy()
-        .groupby(index_columns)
+        .group_by(index_columns)
         .agg(pl.col('__size').sum())
         .sort(index_columns)
-        .with_columns(pl.col('__size').cumsum())
+        .with_columns(__part=pl.col('__size').cum_sum()//rows_per_partition)
         .collect()
     )
-
-    lower_bounds = []
-    upper_bounds = []
-    sizes = []
-    current_size = 0
-    while len(sample) > 0:
-        head = sample.filter(
-            pl.col('__size') <= current_size + samples_per_partition)
-        if len(head) == 0:
-            head = sample[:1, :]
-            sample = sample[1:, :]
-        else:
-            sample = sample.filter(
-                pl.col('__size') > current_size + samples_per_partition)
-        lower_bounds.append(head.row(0)[:-1])
-        upper_bounds.append(head.row(-1)[:-1])
-        sizes.append(head[-1, '__size'] - current_size)
-        current_size = head[-1, '__size']
-
+    lower_bounds = list(
+        sample
+        .group_by('__part')
+        .head(1)
+        .sort('__part')
+        .select(index_columns)
+        .rows()
+    )
     divisions = lower_bounds[1:]
-
-    if samples_per_partition != rows_per_partition:
+    if samples_per_partition == rows_per_partition:
+        upper_bounds = list(
+            sample
+            .group_by('__part')
+            .tail(1)
+            .sort('__part')
+            .select(index_columns)
+            .rows()
+        )
+        sizes = (
+            sample
+            .group_by('__part')
+            .agg(pl.col('__size').sum())
+            .sort('__part')
+            .get_column('__size')
+            .to_list()
+        )
+    else:
         lower_bounds = None
         upper_bounds = None
         sizes = None
@@ -230,6 +239,8 @@ def _repartition(
       padawan.Dataset: The repartitioned dataset.
 
     """
+    if len(self) == 0:
+        return self
     return RepartitionedDataset(
         self,
         rows_per_partition,
