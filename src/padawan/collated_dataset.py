@@ -1,7 +1,7 @@
 import polars as pl
 
 from .dataset import Dataset
-from .ordering import lex_key
+from .ordering import lex_key, sort_partitions
 
 
 class CollatedDataset(Dataset):
@@ -16,13 +16,8 @@ class CollatedDataset(Dataset):
         other_lower_bounds = self._other.lower_bounds
         other_upper_bounds = self._other.upper_bounds
         other_sizes = self._other.sizes
-        partition_indices = sorted(
-            range(len(self._other)),
-            key=lambda i: (
-                lex_key(other_lower_bounds[i]),
-                lex_key(other_upper_bounds[i]),
-            ),
-        )
+        partition_indices = sort_partitions(
+            other_lower_bounds, other_upper_bounds)
 
         batches = []
         lower_bounds = []

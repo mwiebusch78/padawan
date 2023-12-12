@@ -4,9 +4,7 @@ import functools
 
 def _null_lt(col, val):
     if val is None:
-#         return pl.lit(False)
-        # Work around polars bug with broadcasting boolean literals
-        return pl.col(col).is_null() & pl.col(col).is_not_null()
+        return pl.lit(False)
     return pl.col(col).is_null() | (pl.col(col) < val)
 
 
@@ -24,9 +22,7 @@ def _null_gt(col, val):
 
 def _null_geq(col, val):
     if val is None:
-#         return pl.lit(True)
-        # Work around polars bug with broadcasting boolean literals
-        return pl.col(col).is_null() | pl.col(col).is_not_null()
+        return pl.lit(True)
     return pl.col(col) >= val
 
 
@@ -93,3 +89,16 @@ def lex_cmp(a, b):
     return lex_cmp(a[1:], b[1:])
 
 lex_key = functools.cmp_to_key(lex_cmp)
+
+
+def sort_partitions(lower_bounds, upper_bounds):
+    if len(lower_bounds) != len(upper_bounds):
+        raise ValueError('lower_bounds and upper_bounds must have same length')
+    return sorted(
+        range(len(lower_bounds)),
+        key=lambda i: (
+            lex_key(lower_bounds[i]),
+            lex_key(upper_bounds[i]),
+        ),
+    )
+

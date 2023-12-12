@@ -6,6 +6,7 @@ from .parallelize import parallel_map, is_parallel_config
 from .json_io import write_json
 from .metadata import (
     load_metadata, PARTITION_NUMBER_DIGITS, METADATA_FILE, SCHEMA_FILE)
+from .ordering import sort_partitions
 
 
 def lex_min(df):
@@ -211,6 +212,42 @@ class Dataset:
         if self._schema is not None:
             return self._schema.copy()
         return None
+
+    def is_disjoint(self):
+        """Check if index ranges of partitions are non-overlapping.
+
+        Returns:
+          bool: ``True`` if index ranges do not overlap.
+        """
+        if self._npartitions <= 1:
+            return True
+        if not self._index_columns:
+            return True
+        if not self.known_bounds:
+            raise StatsUnknownError(
+                'Bounds must be known to check disjointness. '
+                'Try using reindex first.'
+            )
+
+        partition_indices = sort_partitions(
+            self._lower_bounds, self._upper_bounds)
+        return all(
+            ub < lb for ub, lb in
+            zip(self._upper_bounds[:-1], self._lower_bounds[1:])
+        )
+
+    def assert_disjoint(self):
+        """Assert that index ranges of partitions are non-overlapping.
+
+        Raises:
+          AssertionError: Index ranges overlap.
+
+        Returns:
+          padawan.Dataset: `self`.
+        """
+        if not self.is_disjoint():
+            raise AssertionError('Partitions are not disjoint.')
+        return self
 
     def __len__(self):
         return self._npartitions

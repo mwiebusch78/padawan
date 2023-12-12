@@ -95,6 +95,7 @@ def test__repartition__indexed(datetime_sample):
     )
 
     assert len(ds) == 5
+    assert ds.is_disjoint()
 
     assert dataframe_eq(
         ds[0].collect(),
@@ -141,6 +142,7 @@ def test__repartition__no_index(datetime_sample):
 
     num_partitions = math.ceil(len(datetime_sample['data'])/10)
     assert len(ds) == num_partitions
+    assert ds.is_disjoint()
     for i in range(num_partitions):
         assert dataframe_eq(
             ds[i].collect(),

@@ -6,7 +6,8 @@ from .dataset import Dataset
 def get_row_divisions(partition_sizes, rows_per_partition):
     num_rows = sum(partition_sizes)
     df_old = (
-        pl.DataFrame(pl.Series('row', [0] + list(partition_sizes)[:-1], pl.UInt32))
+        pl.DataFrame(
+            pl.Series('row', [0] + list(partition_sizes)[:-1], pl.UInt32))
         .with_row_count('part_index')
         .with_columns(
             row=pl.col('row').cum_sum(),
@@ -20,7 +21,11 @@ def get_row_divisions(partition_sizes, rows_per_partition):
         )
     )
     df_new = (
-        pl.DataFrame(pl.int_range(0, num_rows, rows_per_partition, dtype=pl.UInt32, eager=True).alias('row'))
+        pl.DataFrame(
+            pl.int_range(
+                0, num_rows, rows_per_partition, dtype=pl.UInt32, eager=True)
+            .alias('row')
+        )
         .with_columns(
             part_index=pl.lit(None, pl.UInt32),
             part_base=pl.lit(None, pl.UInt32),
@@ -89,7 +94,7 @@ def get_index_divisions(
         .group_by(index_columns)
         .agg(pl.col('__size').sum())
         .sort(index_columns)
-        .with_columns(__part=pl.col('__size').cum_sum()//rows_per_partition)
+        .with_columns(__part=pl.col('__size').cum_sum()//samples_per_partition)
         .collect()
     )
     lower_bounds = list(
