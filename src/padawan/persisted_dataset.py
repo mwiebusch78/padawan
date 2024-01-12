@@ -10,16 +10,17 @@ class StatsNotFoundError(Exception):
     pass
 
 
+def scan_folder(path):
+    path_pattern = os.path.join(path, '*.parquet')
+    partition_paths = sorted(glob.glob(path_pattern))
+    if not partition_paths:
+        raise FileNotFoundError(
+            f'No files matching pattern {path_pattern}')
+
+    return [os.path.basename(f) for f in partition_paths]
+
+
 class PersistedDataset(Dataset):
-    def _scan_folder(self, path):
-        path_pattern = os.path.join(path, '*.parquet')
-        partition_paths = sorted(glob.glob(path_pattern))
-        if not partition_paths:
-            raise FileNotFoundError(
-                f'No files matching pattern {path_pattern}')
-
-        return [os.path.basename(f) for f in partition_paths]
-
     def __init__(self, path):
         self._path = path
 
@@ -34,7 +35,7 @@ class PersistedDataset(Dataset):
                 schema,
             ) = load_metadata(path)
         except FileNotFoundError:
-            files = self._scan_folder(path)
+            files = scan_folder(path)
             sizes = None
             lower_bounds = ((),)*len(files)
             upper_bounds = ((),)*len(files)

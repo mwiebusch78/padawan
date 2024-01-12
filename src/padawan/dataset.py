@@ -36,6 +36,18 @@ def dataframe_from_schema(schema):
     return pl.DataFrame([pl.Series(c, [], dtype=t) for c, t in schema.items()])
 
 
+def get_partition_stats(part, index_columns):
+    nrows = len(part)
+    if index_columns:
+        index = part.select(index_columns)
+        lb = lex_min(index)
+        ub = lex_max(index)
+    else:
+        lb = ()
+        ub = ()
+    return nrows, lb, ub
+
+
 class StatsUnknownError(Exception):
     pass
 
@@ -307,14 +319,7 @@ class Dataset:
             index_columns = tuple(index_columns)
 
         part = self[partition_index].collect()
-        nrows = len(part)
-        if index_columns:
-            index = part.select(index_columns)
-            lb = lex_min(index)
-            ub = lex_max(index)
-        else:
-            lb = ()
-            ub = ()
+        nrows, lb, ub = get_partition_stats(part, index_columns)
         return part, nrows, lb, ub
 
     def _write_partition(self, partition_index, path, offset):

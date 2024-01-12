@@ -44,7 +44,10 @@ def _progress_message(msg, n):
     return progress_callback
 
 
-_DEFAULT_MSG = 'Completed {percent}% ({completed} of {total}). Time remaining: {tremaining}.'
+_DEFAULT_MSG = (
+    'Completed {percent}% ({completed} of {total}). '
+    'Time remaining: {tremaining}.'
+)
 
 
 def parallel_map(f, args, workers=False, shared_args=None, progress=False):

@@ -1,4 +1,4 @@
-__version__ = '0.10'
+__version__ = '0.11'
 
 __all__ = [
     'scan_parquet',
@@ -23,3 +23,4 @@ from .persisted_dataset import scan_parquet
 from .in_memory_dataset import from_polars
 from .dataset import Dataset
 from .concatenated_dataset import concat
+from .write_metadata import write_metadata
