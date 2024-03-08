@@ -214,3 +214,23 @@ def test__slice__inclusive_both(datetime_sample):
     ds = ds.collect().select(['date', 'hour']).sort(['date', 'hour'])
     assert(ds.select(['date', 'hour']).row(0) == lb)
     assert(ds.select(['date', 'hour']).row(-1) == ub)
+
+
+def test__slice__firstcol(datetime_sample):
+    lb = [date(2022, 1, 2)]
+    ub = [date(2022, 1, 4)]
+
+    data = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['date', 'hour'])
+        .slice(lb, ub, inclusive='both')
+        .collect()
+    )
+    expected_data = (
+        datetime_sample['data']
+        .filter(
+            (pl.col('date') >= lb[0])
+            & (pl.col('date') <= ub[0])
+        )
+    )
+    assert dataframe_eq(data, expected_data)

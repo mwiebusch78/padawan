@@ -40,21 +40,41 @@ class SlicedDataset(Dataset):
         # Determine overlapping partitions.
         partitions = list(range(len(self._other)))
         if lb is not None:
+            lbcols = len(lb)
+            if lbcols > len(index_columns):
+                raise ValueError(
+                    'Lower bound must be a tuple of the same length or '
+                    'shorter than index_columns'
+                )
             lb_key = lex_key(lb)
             if lower_inclusive:
                 partitions = [
-                    p for p in partitions if lb_key <= lex_key(other_ubs[p])]
+                    p for p in partitions
+                    if lb_key <= lex_key(other_ubs[p][:lbcols])
+                ]
             else:
                 partitions = [
-                    p for p in partitions if lb_key < lex_key(other_ubs[p])]
+                    p for p in partitions
+                    if lb_key < lex_key(other_ubs[p][:lbcols])
+                ]
         if ub is not None:
+            ubcols = len(ub)
+            if ubcols > len(index_columns):
+                raise ValueError(
+                    'Upper bound must be a tuple of the same length or '
+                    'shorter than index_columns'
+                )
             ub_key = lex_key(ub)
             if upper_inclusive:
                 partitions = [
-                    p for p in partitions if lex_key(other_lbs[p]) <= ub_key]
+                    p for p in partitions
+                    if lex_key(other_lbs[p][:ubcols]) <= ub_key
+                ]
             else:
                 partitions = [
-                    p for p in partitions if lex_key(other_lbs[p]) < ub_key]
+                    p for p in partitions
+                    if lex_key(other_lbs[p][:ubcols]) < ub_key
+                ]
 
         # Get bounds for selected partitions.
         lower_bounds = [other_lbs[p] for p in partitions]
@@ -68,21 +88,23 @@ class SlicedDataset(Dataset):
         if lb is None:
             lb_irrelevant = True
         else:
-            lb_key = lex_key(lb)
             if lower_inclusive:
-                lb_irrelevant = all(lb_key <= lex_key(b) for b in lower_bounds)
+                lb_irrelevant = all(
+                    lb_key <= lex_key(b[:lbcols]) for b in lower_bounds)
             else:
-                lb_irrelevant = all(lb_key < lex_key(b) for b in lower_bounds)
+                lb_irrelevant = all(
+                    lb_key < lex_key(b[:lbcols]) for b in lower_bounds)
 
         ub_irrelevant = False
         if ub is None:
             ub_irrelevant = True
         else:
-            ub_key = lex_key(ub)
             if upper_inclusive:
-                ub_irrelevant = all(lex_key(b) <= ub_key for b in upper_bounds)
+                ub_irrelevant = all(
+                    lex_key(b[:ubcols]) <= ub_key for b in upper_bounds)
             else:
-                ub_irrelevant = all(lex_key(b) < ub_key for b in upper_bounds)
+                ub_irrelevant = all(
+                    lex_key(b[:ubcols]) < ub_key for b in upper_bounds)
 
         if lb_irrelevant and ub_irrelevant:
             other_sizes = self._other.sizes
@@ -92,9 +114,9 @@ class SlicedDataset(Dataset):
         # Determine bounds for new dataset.
 
         if lb is not None:
-            if lower_inclusive:
+            if lower_inclusive and lbcols == len(index_columns):
                 lower_bounds = [max(b, lb, key=lex_key) for b in lower_bounds]
-            if upper_inclusive:
+            if upper_inclusive and ubcols == len(index_columns):
                 upper_bounds = [min(b, ub, key=lex_key) for b in upper_bounds]
 
         # Initialise dataset.
@@ -117,18 +139,30 @@ class SlicedDataset(Dataset):
         part = self._other[other_part_index]
         part_lb = self._other.lower_bounds[other_part_index]
         part_ub = self._other.upper_bounds[other_part_index]
+        lb_index_columns = self._index_columns
+        ub_index_columns = self._index_columns
+
+        if self._lb is not None:
+            ncols = len(self._lb)
+            part_lb = part_lb[:ncols]
+            lb_index_columns = lb_index_columns[:ncols]
+        if self._ub is not None:
+            ncols = len(self._ub)
+            part_ub = part_ub[:ncols]
+            ub_index_columns = ub_index_columns[:ncols]
+
         if self._lower_inclusive:
             if self._lb is not None and lex_key(part_lb) < lex_key(self._lb):
-                part = part.filter(columns_geq(self._index_columns, self._lb))
+                part = part.filter(columns_geq(lb_index_columns, self._lb))
         else:
             if self._lb is not None and lex_key(part_lb) <= lex_key(self._lb):
-                part = part.filter(columns_gt(self._index_columns, self._lb))
+                part = part.filter(columns_gt(lb_index_columns, self._lb))
         if self._upper_inclusive:
             if self._ub is not None and lex_key(self._ub) < lex_key(part_ub):
-                part = part.filter(columns_leq(self._index_columns, self._ub))
+                part = part.filter(columns_leq(ub_index_columns, self._ub))
         else:
             if self._ub is not None and lex_key(self._ub) <= lex_key(part_ub):
-                part = part.filter(columns_lt(self._index_columns, self._ub))
+                part = part.filter(columns_lt(ub_index_columns, self._ub))
 
         return part
 
@@ -137,12 +171,16 @@ def _slice(self, lb=None, ub=None, inclusive='lower'):
     """Take a slice of the dataset using the current index columns.
 
     Args:
-      lb (tuple, optional): A tuple with the same length as
+      lb (tuple, optional): A tuple with the same length as or shorter than
         ``self.index_columns`` specifying the lower bound of the
-        slice. Defaults to ``None``, in which case there is no lower bound.
-      ub (tuple, optional): A tuple with the same length as
+        slice. If `lb` is shorter than ``self.index_columns`` then slicing
+        is done on the first ``len(lb)`` index columns only. Defaults to
+        ``None``, in which case there is no lower bound.
+      ub (tuple, optional): A tuple with the same length as or shorter than
         ``self.index_columns`` specifying the upper bound of the
-        slice. Defaults to ``None``, in which case there is no upper bound.
+        slice. If `ub` is shorter than ``self.index_columns`` then slicing
+        is done on the first ``len(ub)`` index columns only. Defaults to
+        ``None``, in which case there is no upper bound.
       inclusive (str, optional): Specifies which of the bounds are inclusive.
         Allowed values are ``'none'``, ``'lower'``, ``'upper'`` or ``'both'``.
         Defaults to ``'lower'``.
