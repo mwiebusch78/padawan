@@ -83,6 +83,10 @@ nullable_key = functools.cmp_to_key(nullable_cmp)
 
 
 def lex_cmp(a, b):
+    if len(a) != len(b):
+        raise ValueError('Cannot compare tuples with different lengths.')
+    if len(a) == 0:
+        return 0
     hcmp = nullable_cmp(a[0], b[0])
     if len(a) == 1 or hcmp != 0:
         return hcmp
