@@ -6,7 +6,7 @@ from .parallelize import parallel_map, is_parallel_config
 from .json_io import write_json
 from .metadata import (
     load_metadata, PARTITION_NUMBER_DIGITS, METADATA_FILE, SCHEMA_FILE)
-from .ordering import sort_partitions
+from .ordering import sort_partitions, lex_key
 
 
 def lex_min(df):
@@ -243,9 +243,12 @@ class Dataset:
 
         partition_indices = sort_partitions(
             self._lower_bounds, self._upper_bounds)
+        lower_bounds = [
+            lex_key(self._lower_bounds[i]) for i in partition_indices]
+        upper_bounds = [
+            lex_key(self._upper_bounds[i]) for i in partition_indices]
         return all(
-            ub < lb for ub, lb in
-            zip(self._upper_bounds[:-1], self._lower_bounds[1:])
+            ub < lb for ub, lb in zip(upper_bounds[:-1], lower_bounds[1:])
         )
 
     def assert_disjoint(self):
