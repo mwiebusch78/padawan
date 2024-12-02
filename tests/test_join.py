@@ -39,7 +39,7 @@ def test__join__left(datetime_sample, date_sample):
     assert dataframe_eq(expected_ds, ds)
 
 
-def test__join__outer(datetime_sample, date_sample):
+def test__join__full(datetime_sample, date_sample):
     ds1 = (
         padawan.scan_parquet(datetime_sample['path'])
         .reindex(['date'])
@@ -48,9 +48,9 @@ def test__join__outer(datetime_sample, date_sample):
         padawan.scan_parquet(date_sample['path'])
         .reindex(['date'])
     )
-    ds = ds1.join(ds2, how='outer').collect()
+    ds = ds1.join(ds2, how='full').collect()
 
     expected_ds = datetime_sample['data'].join(
-        date_sample['data'], on='date', how='outer')
+        date_sample['data'], on='date', how='full')
     assert dataframe_eq(expected_ds, ds)
 
