@@ -1,4 +1,4 @@
-__version__ = '0.12.2'
+__version__ = '0.13'
 
 __all__ = [
     'scan_parquet',

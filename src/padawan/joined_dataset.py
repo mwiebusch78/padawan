@@ -23,9 +23,9 @@ class JoinedDataset(Dataset):
             raise ValueError(
                 'Index columns of left and right dataset must be the same.')
 
-        if how not in ['left', 'inner', 'outer']:
+        if how not in ['left', 'inner', 'full']:
             raise ValueError(
-                'Only left, inner and outer joins are supported.')
+                'Only left, inner and full joins are supported.')
 
         self._left = left
         self._right = right

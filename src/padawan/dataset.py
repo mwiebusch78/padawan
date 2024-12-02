@@ -346,6 +346,88 @@ class Dataset:
         part.write_parquet(os.path.join(path, filename))
         return filename, nrows, lb, ub, schema
 
+    def _init_path(self, path, append, default_schema):
+        if not append:
+            try:
+                shutil.rmtree(path)
+            except NotADirectoryError:
+                os.remove(path)
+            except FileNotFoundError:
+                pass
+            os.mkdir(path)
+            files = []
+            sizes = []
+            lower_bounds = []
+            upper_bounds = []
+            max_partition_index = -1
+            schema = default_schema
+        else:
+            try:
+                (
+                    files,
+                    index_columns,
+                    sizes,
+                    lower_bounds,
+                    upper_bounds,
+                    max_partition_index,
+                    schema,
+                ) = load_metadata(path)
+            except FileNotFoundError:
+                raise AppendError(
+                    f'Could not load metadata in {repr(path)}.')
+            if index_columns != self.index_columns:
+                raise AppendError(
+                    f'Cannot append dataset with index columns {index_columns}'
+                    f' to dataset with index columns {self.index_columns}.')
+
+        return (
+            (
+                files,
+                sizes,
+                lower_bounds,
+                upper_bounds,
+                schema,
+            ),
+            max_partition_index,
+        )
+
+    def _write_metadata(
+        self,
+        path,
+        metadata,
+        max_partition_index,
+        newparts=None,
+    ):
+        (
+            files,
+            sizes,
+            lower_bounds,
+            upper_bounds,
+            schema,
+        ) = metadata
+
+        if newparts:
+            max_partition_index += len(newparts)
+
+            files = files + [m[0] for m in newparts if m[1] > 0]
+            sizes = sizes + [m[1] for m in newparts if m[1] > 0]
+            lower_bounds = lower_bounds + [m[2] for m in newparts if m[1] > 0]
+            upper_bounds = upper_bounds + [m[3] for m in newparts if m[1] > 0]
+            if schema is None:
+                schema = newparts[0][4]
+
+        metadata = {
+            'index_columns': self._index_columns,
+            'files': files,
+            'sizes': sizes,
+            'lower_bounds': lower_bounds,
+            'upper_bounds': upper_bounds,
+            'max_partition_index': max_partition_index,
+        }
+        write_json(metadata, os.path.join(path, METADATA_FILE))
+        dataframe_from_schema(schema).write_parquet(
+            os.path.join(path, SCHEMA_FILE))
+
     def write_parquet(
             self,
             path,
@@ -430,70 +512,17 @@ class Dataset:
             with :py:func:`padawan.scan_parquet`.
 
         """
-        if not append:
-            try:
-                shutil.rmtree(path)
-            except NotADirectoryError:
-                os.remove(path)
-            except FileNotFoundError:
-                pass
-            os.mkdir(path)
-            files = []
-            sizes = []
-            lower_bounds = []
-            upper_bounds = []
-            max_partition_index = -1
-            schema = None
-        else:
-            try:
-                (
-                    files,
-                    index_columns,
-                    sizes,
-                    lower_bounds,
-                    upper_bounds,
-                    max_partition_index,
-                    schema,
-                ) = load_metadata(path)
-            except FileNotFoundError:
-                raise AppendError(
-                    f'Could not load metadata in {repr(path)}.')
-            if index_columns != self.index_columns:
-                raise AppendError(
-                    f'Cannot append dataset with index columns {index_columns}'
-                    f' to dataset with index columns {self.index_columns}.')
-
+        metadata, max_partition_index = self._init_path(
+            path, append, self._schema)
         partition_indices = list(range(self._npartitions))
-        meta = parallel_map(
+        newparts = parallel_map(
             self._write_partition,
             partition_indices,
             workers=parallel,
             shared_args={'path': path, 'offset': max_partition_index + 1},
             progress=progress,
         )
-        max_partition_index += self._npartitions
-
-        files += [m[0] for m in meta if m[1] > 0]
-        sizes += [m[1] for m in meta if m[1] > 0]
-        lower_bounds += [m[2] for m in meta if m[1] > 0]
-        upper_bounds += [m[3] for m in meta if m[1] > 0]
-        if schema is None:
-            if meta:
-                schema = meta[0][4]
-            else:
-                schema = self._schema
-
-        meta = {
-            'index_columns': self._index_columns,
-            'files': files,
-            'sizes': sizes,
-            'lower_bounds': lower_bounds,
-            'upper_bounds': upper_bounds,
-            'max_partition_index': max_partition_index,
-        }
-        write_json(meta, os.path.join(path, METADATA_FILE))
-        dataframe_from_schema(schema).write_parquet(
-            os.path.join(path, SCHEMA_FILE))
+        self._write_metadata(path, metadata, max_partition_index, newparts)
 
         if append:
             return None

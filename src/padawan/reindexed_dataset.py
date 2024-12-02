@@ -74,7 +74,7 @@ class ReindexedDataset(Dataset):
             upper_bounds = None
 
         if schema is None and len(self._other) > 0:
-            schema = self._other[0].schema
+            schema = self._other[0].collect_schema()
 
         super().__init__(
             npartitions=npartitions,

@@ -8,7 +8,7 @@ def get_row_divisions(partition_sizes, rows_per_partition):
     df_old = (
         pl.DataFrame(
             pl.Series('row', [0] + list(partition_sizes)[:-1], pl.UInt32))
-        .with_row_count('part_index')
+        .with_row_index('part_index')
         .with_columns(
             row=pl.col('row').cum_sum(),
             is_new_div=pl.lit(False, pl.Boolean),
@@ -61,7 +61,7 @@ def _sample_partition(part, seed, index_columns, frac):
     sample = (
         sample
         .group_by(index_columns)
-        .agg(pl.count().alias('__size'))
+        .agg(pl.len().alias('__size'))
     )
     return sample
 

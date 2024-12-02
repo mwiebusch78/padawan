@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "padawan"
-version = "0.12.2"
+version = "0.13"
 authors = [
   { name="Martin Wiebusch" },
 ]
@@ -17,7 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "polars >= 0.19.19",
+    "polars >= 1.14.0",
     "cloudpickle",
 ]
 
