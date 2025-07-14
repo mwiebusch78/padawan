@@ -18,6 +18,7 @@ classifiers = [
 ]
 dependencies = [
     "polars >= 1.14.0",
+    "pyarrow",
     "cloudpickle",
 ]
 
