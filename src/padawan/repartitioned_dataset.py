@@ -1,6 +1,28 @@
-import polars as pl
+import datetime as dt
+import os
 
-from .dataset import Dataset
+import polars as pl
+import pyarrow
+import pyarrow.parquet
+
+from .dataset import Dataset, lex_min, lex_max
+from .ordering import lex_key, columns_geq, columns_lt
+from .metadata import PARTITION_NUMBER_DIGITS
+from .progress import make_progress_callback
+
+
+def partition_index_expr(index_columns, divisions):
+    if len(divisions) <= 2:
+        return pl.lit(0)
+    for i, (lb, ub) in enumerate(zip(divisions[:-1], divisions[1:])):
+        cond = pl.lit(True)
+        if lb is None:
+            expr = pl.when(columns_lt(index_columns, ub)).then(i)
+        elif ub is None:
+            expr = expr.otherwise(i)
+        else:
+            expr = expr.when(columns_lt(index_columns, ub)).then(i)
+    return expr
 
 
 def get_row_divisions(partition_sizes, rows_per_partition):
@@ -136,6 +158,7 @@ class RepartitionedDataset(Dataset):
             self,
             other,
             rows_per_partition,
+            index_columns=None,
             sample_fraction=1.0,
             parallel=False,
             progress=False,
@@ -144,14 +167,13 @@ class RepartitionedDataset(Dataset):
     ):
         if not isinstance(other, Dataset):
             raise ValueError('other must be a Dataset object')
-        if not other.known_sizes and other.known_bounds:
-            raise ValueError(
-                'Stats must be known when using repartition. Try calling '
-                'reindex() first.')
         self._other = other
 
-        index_columns = self._other.index_columns
+        if index_columns is None:
+            index_columns = self._other.index_columns
         if not index_columns:
+            if not self._other.known_sizes:
+                self._other = self._other.reindex()
             divisions, sizes, lower_bounds, upper_bounds \
                 = get_row_divisions(self._other.sizes, rows_per_partition)
         else:
@@ -166,6 +188,8 @@ class RepartitionedDataset(Dataset):
                     parallel=parallel,
                     progress=progress,
                 )
+        self._cached_partition_index = None
+        self._cached_partition = None
 
         super().__init__(
             npartitions=len(divisions) + 1,
@@ -177,7 +201,7 @@ class RepartitionedDataset(Dataset):
         )
         self._divisions = [None] + divisions + [None]
 
-    def _get_partition(self, partition_index):
+    def _get_partition(self, partition_index, cache=False):
         lb = self._divisions[partition_index]
         ub = self._divisions[partition_index + 1]
         if self.index_columns:
@@ -199,26 +223,159 @@ class RepartitionedDataset(Dataset):
 
             parts = []
             for i_part in range(from_part, to_part + 1):
-                part = self._other[i_part].collect()
+                if cache:
+                    if self._cached_partition_index is None \
+                            or self._cached_partition_index != i_part:
+                        self._cached_partition = self._other[i_part].collect()
+                        self._cached_partition_index = i_part
+                    part = self._cached_partition.lazy()
+                else:
+                    part = self._other[i_part]
                 row_beg = from_row if i_part == from_part else None
                 row_end = to_row if i_part == to_part else None
-                parts.append(part[slice(row_beg, row_end), :])
+                if row_beg is None and row_end is None:
+                    parts.append(part)
+                elif row_beg is None:
+                    parts.append(part.slice(0, row_end))
+                elif row_end is None:
+                    parts.append(part.slice(row_beg))
+                else:
+                    parts.append(part.slice(row_beg, row_end-row_beg))
             return pl.concat(parts).lazy()
+
+    def _fast_write_parquet(self, path, progress):
+        progress = make_progress_callback(progress)
+        index_columns = self._index_columns
+        filenames = [
+            f'part{{0:0>{PARTITION_NUMBER_DIGITS}d}}.parquet'.format(i)
+            for i in range(self._npartitions)
+        ]
+        lower_bounds = [None]*self._npartitions
+        upper_bounds = [None]*self._npartitions
+        sizes = [0]*self._npartitions
+        schema = self._other.schema
+        self._init_path(path, append=False, default_schema=schema)
+        t0 = dt.datetime.now()
+        if index_columns:
+            try:
+                writers = [None]*self._npartitions
+                for i_part, part in enumerate(self._other):
+                    part = (
+                        part
+                        .collect()
+                        .with_columns(
+                            __part=partition_index_expr(
+                                index_columns,
+                                self._divisions,
+                            )
+                        )
+                    )
+                    for (i,), batch in \
+                            part.partition_by('__part', as_dict=True).items():
+                        batch = batch.drop('__part')
+                        batch_lb = lex_min(batch.select(index_columns))
+                        batch_ub = lex_max(batch.select(index_columns))
+                        if lower_bounds[i] is None:
+                            lower_bounds[i] = batch_lb
+                        else:
+                            lower_bounds[i] = min(
+                                lower_bounds[i], batch_lb, key=lex_key)
+                        if upper_bounds[i] is None:
+                            upper_bounds[i] = batch_ub
+                        else:
+                            upper_bounds[i] = max(
+                                upper_bounds[i], batch_ub, key=lex_key)
+                        sizes[i] += len(batch)
+                        if schema is None:
+                            schema = batch.schema
+                        batch = batch.to_arrow()
+                        if writers[i] is None:
+                            writers[i] = pyarrow.parquet.ParquetWriter(
+                                os.path.join(path, filenames[i]),
+                                batch.schema,
+                                compression='ZSTD',
+                            )
+                        writers[i].write_table(batch)
+                    progress(
+                        i_part + 1,
+                        self._other._npartitions,
+                        dt.datetime.now(),
+                        t0,
+                    )
+            finally:
+                for writer in writers:
+                    if writer is not None:
+                        writer.close()
+        else:
+            try:
+                for i, (lb, ub) in enumerate(zip(
+                        self._divisions[:-1], self._divisions[1:])):
+                    part = self._get_partition(i, cache=True).collect()
+                    lower_bounds[i] = ()
+                    upper_bounds[i] = ()
+                    sizes[i] = len(part)
+                    if schema is None:
+                        schema = part.schema
+                    if len(part) > 0:
+                        part.write_parquet(os.path.join(path, filenames[i]))
+            finally:
+                self._cached_partition_index = None
+                self._cached_partition = None
+
+        filenames = [f for f, s in zip(filenames, sizes) if s > 0]
+        lower_bounds = [lb for lb, s in zip(lower_bounds, sizes) if s > 0]
+        upper_bounds = [lb for lb, s in zip(upper_bounds, sizes) if s > 0]
+        max_partition_index = max(i for i, s in enumerate(sizes) if s > 0)
+        sizes = [s for s in sizes if s > 0]
+        self._write_metadata(
+            path,
+            (
+                filenames,
+                sizes,
+                lower_bounds,
+                upper_bounds,
+                schema,
+            ),
+            max_partition_index,
+        )
+        return self._read_persisted(path)
+
+    def write_parquet(
+            self,
+            path,
+            append=False,
+            parallel=False,
+            progress=False,
+    ):
+        if not append and not parallel:
+            return self._fast_write_parquet(path, progress=progress)
+        return super().write_parquet(
+            path, append=append, parallel=parallel, progress=progress)
 
 
 def _repartition(
-        self, 
-        rows_per_partition,
-        sample_fraction=1.0,
-        parallel=False,
-        progress=False,
-        base_seed=10,
-        seed_increment=10,
+    self,
+    rows_per_partition,
+    index_columns=None,
+    sample_fraction=1.0,
+    parallel=False,
+    progress=False,
+    base_seed=10,
+    seed_increment=10,
 ):
     """Repartition the dataset.
 
     The data is partitioned so that rows with the same values for
     the index columns appear in the same partition.
+
+    Note:
+      On large datasets repartitioning is an expensive operation. It is
+      generally recommended to persist the dataset immediately after
+      repartitioning by calling :py:meth:`padawan.Dataset.write_parquet`.
+      There is an optimised implementation of ``write_parquet`` for
+      repartitioned datasets. To use this implementation call ``write_parquet``
+      directly after ``repartition`` and make sure that the `parallel` and
+      `append` arguments are set to their default values (i.e. ``False``).
 
     Args:
       rows_per_partition (int): The desired number of rows per partition.
@@ -249,6 +406,7 @@ def _repartition(
     return RepartitionedDataset(
         self,
         rows_per_partition,
+        index_columns=index_columns,
         sample_fraction=sample_fraction,
         parallel=parallel,
         progress=progress,

@@ -14,7 +14,7 @@ from fixtures import (
     output_dir,
 )
 
-from utils import dataframe_eq
+from utils import dataframe_eq, check_bounds_and_sizes
 
 
 def test__get_row_divisions__nothing_to_do():
@@ -149,4 +149,24 @@ def test__repartition__no_index(datetime_sample):
             datetime_sample['data'][10*i:10*(i+1), :],
         )
 
+
+def test__write_parquet__indexed(datetime_sample, output_dir):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .reindex(['hour'])
+        .repartition(24)
+        .write_parquet(output_dir)
+    )
+    assert ds.index_columns == ('hour',)
+    check_bounds_and_sizes(ds)
+
+
+def test__write_parquet__no_index(datetime_sample, output_dir):
+    ds = (
+        padawan.scan_parquet(datetime_sample['path'])
+        .repartition(24)
+        .write_parquet(output_dir)
+    )
+    assert ds.index_columns == ()
+    check_bounds_and_sizes(ds)
 
