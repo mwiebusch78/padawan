@@ -18,7 +18,7 @@ def lex_min(df):
         if df.select(pl.col(col).is_null().any()).row(0)[0]:
             df = df.filter(pl.col(col).is_null())
         else:
-            df = df.filter(pl.col(col) == pl.col(col).min())
+            df = df.filter(pl.col(col).eq_missing(pl.col(col).min()))
     return df.row(0)
 
 
@@ -28,7 +28,7 @@ def lex_max(df):
 
     columns = list(df.columns)
     for col in columns:
-        df = df.filter(pl.col(col) == pl.col(col).max())
+        df = df.filter(pl.col(col).eq_missing(pl.col(col).max()))
     return df.row(0)
 
 

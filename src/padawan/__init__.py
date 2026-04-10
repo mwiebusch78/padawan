@@ -1,10 +1,10 @@
-__version__ = '0.14'
-
 __all__ = [
     'scan_parquet',
     'from_polars',
     'concat',
 ]
+
+from .version import __version__
 
 from . import dataset
 
