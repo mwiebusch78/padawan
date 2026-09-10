@@ -2,6 +2,8 @@ __all__ = [
     'scan_parquet',
     'from_polars',
     'concat',
+    'write_metadata',
+    'combine',
 ]
 
 from .version import __version__
@@ -24,3 +26,4 @@ from .in_memory_dataset import from_polars
 from .dataset import Dataset
 from .concatenated_dataset import concat
 from .write_metadata import write_metadata
+from .combined_dataset import combine
