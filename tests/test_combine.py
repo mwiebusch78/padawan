@@ -18,6 +18,8 @@ def test__combine(datetime_sample, date_sample):
     )
 
     def func(part1, part2):
+        assert isinstance(part1, pl.LazyFrame)
+        assert isinstance(part2, pl.LazyFrame)
         return part1.join(part2, on='date', how='inner')
 
     ds = padawan.combine([ds1, ds2], func)
@@ -40,6 +42,8 @@ def test__combine__no_index_cols(datetime_sample, date_sample):
     )
 
     def func(part1, part2):
+        assert isinstance(part1, pl.LazyFrame)
+        assert isinstance(part2, pl.LazyFrame)
         return part1.join(part2, on='date', how='inner')
 
     ds = padawan.combine([ds1, ds2], func)

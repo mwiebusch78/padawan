@@ -60,7 +60,7 @@ class CombinedDataset(Dataset):
         ub = self._divisions[partition_index + 1]
 
         slices = [
-            ds.slice(lb, ub, inclusive='lower').collect()
+            ds.slice(lb, ub, inclusive='lower').collect().lazy()
             for ds in self._datasets
         ]
         return self._func(*slices, *self._shared_args).lazy()
