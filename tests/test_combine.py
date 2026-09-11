@@ -21,6 +21,7 @@ def test__combine(datetime_sample, date_sample):
         return part1.join(part2, on='date', how='inner')
 
     ds = padawan.combine([ds1, ds2], func)
+    assert ds.known_schema
     assert len(ds) <= len(ds1) + len(ds2) + 1
 
     expected_ds = datetime_sample['data'].join(
@@ -42,6 +43,7 @@ def test__combine__no_index_cols(datetime_sample, date_sample):
         return part1.join(part2, on='date', how='inner')
 
     ds = padawan.combine([ds1, ds2], func)
+    assert ds.known_schema
     assert len(ds) == 1
 
     expected_ds = datetime_sample['data'].join(

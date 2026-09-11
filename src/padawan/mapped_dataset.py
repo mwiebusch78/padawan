@@ -1,6 +1,6 @@
 import polars as pl
 
-from .dataset import Dataset
+from .dataset import Dataset, dataframe_from_schema
 
 
 class MappedDataset(Dataset):
@@ -11,7 +11,6 @@ class MappedDataset(Dataset):
             extra_args=None,
             shared_args=None,
             index_columns=None,
-            schema=None,
             preserves='none',
     ):
         if not isinstance(other, Dataset):
@@ -25,7 +24,7 @@ class MappedDataset(Dataset):
             if tuple(index_columns) != other.index_columns:
                 raise ValueError(
                     'Index columns cannot change when bounds are preserved.')
-        
+
         sizes = None
         lower_bounds = None
         upper_bounds = None
@@ -46,8 +45,26 @@ class MappedDataset(Dataset):
                     'Index columns must be compatible when bounds are not '
                     'preserved.')
 
+        if not extra_args:
+            extra_args = None
         self._extra_args = extra_args
         self._shared_args = () if shared_args is None else tuple(shared_args)
+
+        schema = None
+        if other.known_schema:
+            if self._extra_args is None:
+                schema = self._func(
+                    dataframe_from_schema(other.schema).lazy(),
+                    *self._shared_args,
+                )
+            else:
+                schema = self._func(
+                    dataframe_from_schema(other.schema).lazy(),
+                    *([None]*len(self._extra_args[0])),
+                    *self._shared_args,
+                )
+            schema = schema.lazy().collect().schema
+
 
         super().__init__(
             npartitions=len(other),
@@ -75,7 +92,6 @@ def _map(
         extra_args=None,
         shared_args=None,
         index_columns=None,
-        schema=None,
         preserves='none',
 ):
     """Apply a function to all partitions.
@@ -92,7 +108,10 @@ def _map(
         where `part` is a ``polars.LazyFrame`` with the partition data,
         `extra_arg_1` etc. are partition-specific arguments specified via
         `extra_args` (see below) and `shared_arg_1` etc are shared arguments
-        specified via `shared_args` (see below).
+        specified via `shared_args` (see below). Note that, to determine the
+        schema of the output dataset, one call to `func` will be made where
+        `part` is an empty dataframe and all extra args are ``None``. In this
+        case `func` should return a dataframe with the correct output schema.
       extra_args (list of tuples, optional): Extra partition-specific arguments
         passed to func. The length of the list must equal the number of
         partitions and each tuple in the list is unpacked and then passed
@@ -107,8 +126,6 @@ def _map(
         dataset, so the old index columns might not exist anymore after `func`
         is applied.) Defaults to ``None``, in which case the old index columns
         are used.
-      schema (dict, optional): The schema of the dataset after the map. Defaults
-        to ``None``, in which case the schema will be unknown.
       preserves (str, optional): Specifies which part of the metadata is
         preserved by `func`. Possible values are:
 
@@ -123,7 +140,7 @@ def _map(
             Both partition sizes and bounds are preserved.
 
         Defaults to ``'none'``.
-        
+
         Note that the behaviour of `func` is not checked. If you specify
         ``preserves='bounds'`` but your `func` actually changes the bounds
         this will lead to incorrect behaviour downstream.
@@ -137,7 +154,6 @@ def _map(
         extra_args=extra_args,
         shared_args=shared_args,
         index_columns=index_columns,
-        schema=schema,
         preserves=preserves,
     )
 Dataset.map = _map

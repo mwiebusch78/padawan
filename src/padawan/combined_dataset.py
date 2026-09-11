@@ -39,13 +39,18 @@ class CombinedDataset(Dataset):
         divisions = sum((ds.lower_bounds for ds in datasets), ())
         divisions = sorted(set(divisions), key=lex_key)
 
+        schema = None
+        if all(ds.known_schema for ds in datasets):
+            parts = [dataframe_from_schema(ds.schema) for ds in datasets]
+            schema = func(*parts, *shared_args).lazy().collect().schema
+
         super().__init__(
             npartitions=len(divisions),
             index_columns=index_columns,
             sizes=None,
             lower_bounds=None,
             upper_bounds=None,
-            schema=None,
+            schema=schema,
         )
         self._divisions = divisions + [None]
         self._func = func
@@ -70,10 +75,16 @@ def combine(datasets, func, shared_args=None):
       func (callable): The function used to combine partitions of the datasets.
         Each partition in the output dataset is obtained by calling `func`
         on slices of the datasets in `datasets` where the index columns cover
-        the same range.
+        the same range. Note that, to determine the schema of the resulting
+        dataset, one call to `func` is made where all slices are empty
+        dataframes, and the schema of the returned dataframe is used as the
+        output schema.
       shared_args (tuple, optional): List of shared arguments that are passed
         to `func` on every call. The shared arguments are passed as positional
         arguments after the dataset slices.
+      schema (dict, optional): The schema of the output dataset. Defaults to
+        ``None``, in which case the schema of the resulting dataset will be
+        unknown.
 
     Returns:
       padawan.Dataset: The combined dataset.
@@ -105,10 +116,11 @@ def _join(self, other, how='inner'):
     if how not in ['left', 'inner', 'full']:
         raise ValueError(
             'Only left, inner and full joins are supported.')
+
     return combine(
         datasets=[self, other],
         func=_join_parts,
-        shared_args=(self.index_columns, how)
+        shared_args=(self.index_columns, how),
     )
 Dataset.join = _join
 
