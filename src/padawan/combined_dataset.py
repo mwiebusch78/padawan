@@ -41,7 +41,7 @@ class CombinedDataset(Dataset):
 
         schema = None
         if all(ds.known_schema for ds in datasets):
-            parts = [dataframe_from_schema(ds.schema) for ds in datasets]
+            parts = [dataframe_from_schema(ds.schema).lazy() for ds in datasets]
             schema = func(*parts, *shared_args).lazy().collect().schema
 
         super().__init__(
