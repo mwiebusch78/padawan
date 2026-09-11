@@ -113,10 +113,6 @@ def _join(self, other, how='inner'):
       padawan.Dataset: The joined dataset.
 
     """
-    if how not in ['left', 'inner', 'full']:
-        raise ValueError(
-            'Only left, inner and full joins are supported.')
-
     return combine(
         datasets=[self, other],
         func=_join_parts,
