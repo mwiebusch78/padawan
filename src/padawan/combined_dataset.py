@@ -5,7 +5,7 @@ from .ordering import lex_key
 
 
 class CombinedDataset(Dataset):
-    def __init__(self, datasets, func):
+    def __init__(self, datasets, func, shared_args=None):
         if not hasattr(datasets, '__iter__'):
             raise ValueError('`datasets` must be iterable.')
         datasets = list(datasets)
@@ -32,19 +32,22 @@ class CombinedDataset(Dataset):
             raise ValueError('`func` must be callable.')
 
         self._datasets = datasets
+        if shared_args is None:
+            shared_args = ()
+        self._shared_args = tuple(shared_args)
 
         divisions = sum((ds.lower_bounds for ds in datasets), ())
         divisions = sorted(set(divisions), key=lex_key)
 
         super().__init__(
-            npartitions=len(divisions) + 1,
+            npartitions=len(divisions),
             index_columns=index_columns,
             sizes=None,
             lower_bounds=None,
             upper_bounds=None,
             schema=None,
         )
-        self._divisions = [None] + divisions + [None]
+        self._divisions = divisions + [None]
         self._func = func
 
     def _get_partition(self, partition_index):
@@ -55,10 +58,10 @@ class CombinedDataset(Dataset):
             ds.slice(lb, ub, inclusive='lower').collect()
             for ds in self._datasets
         ]
-        return self._func(*slices).lazy()
+        return self._func(*slices, *self._shared_args).lazy()
 
 
-def combine(datasets, func):
+def combine(datasets, func, shared_args=None):
     """Combine multiple datasets using a custom function.
 
     Args:
@@ -68,10 +71,44 @@ def combine(datasets, func):
         Each partition in the output dataset is obtained by calling `func`
         on slices of the datasets in `datasets` where the index columns cover
         the same range.
+      shared_args (tuple, optional): List of shared arguments that are passed
+        to `func` on every call. The shared arguments are passed as positional
+        arguments after the dataset slices.
 
     Returns:
       padawan.Dataset: The combined dataset.
 
     """
-    return CombinedDataset(datasets, func)
+    return CombinedDataset(datasets, func, shared_args=shared_args)
+
+
+def _join_parts(left, right, on, how):
+    return left.join(right, on=on, how=how)
+
+
+def _join(self, other, how='inner'):
+    """Join with another dataset.
+
+    Args:
+      other (padawan.Dataset): The dataset to join. `self` and `other` must
+        have the same index columns and the join is done on those columns.
+        You can use :py:meth:`padawan.Dataset.reindex` and
+        :py:meth:`padawan.Dataset.rename` to give both datasets index columns
+        with the same name.
+      how (str, optional): The type of join to perform. Supported values are
+        ``'inner'``, ``'left'`` and ``'outer'``. Defaults to ``'inner'``.
+
+    Returns:
+      padawan.Dataset: The joined dataset.
+
+    """
+    if how not in ['left', 'inner', 'full']:
+        raise ValueError(
+            'Only left, inner and full joins are supported.')
+    return combine(
+        datasets=[self, other],
+        func=_join_parts,
+        shared_args=(self.index_columns, how)
+    )
+Dataset.join = _join
 

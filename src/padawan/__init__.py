@@ -19,7 +19,7 @@ from . import persisted_dataset
 from . import collated_dataset
 from . import sliced_dataset
 from . import repartitioned_dataset
-from . import joined_dataset
+from . import combined_dataset
 
 from .persisted_dataset import scan_parquet
 from .in_memory_dataset import from_polars
